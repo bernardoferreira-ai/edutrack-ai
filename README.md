@@ -6,3 +6,5 @@ Aluno: Bernardo Barbosa Ferreira
 
 2025/2026
 
+## Tecnologias Utilizada
+Git & GitHub, VS Code, Node.js, OpenSpec e Xano
