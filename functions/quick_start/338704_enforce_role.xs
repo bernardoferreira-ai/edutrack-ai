@@ -61,4 +61,5 @@ function "Quick Start/enforce_role" {
 
   response = null
   tags = ["xano:quick-start"]
+  guid = "RVidwu4l_0N4hRKQRf4PDhHsAcM"
 }
