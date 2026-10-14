@@ -41,4 +41,5 @@ agent "Xano Example Agent" {
   }
 
   tools = [{name: "search_xano_docs"}]
+  guid = "v2RLwNdikDTRGlzVhIgcYoI7bD"
 }

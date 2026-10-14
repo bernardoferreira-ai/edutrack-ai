@@ -45,4 +45,5 @@ function "Quick Start/generate_magic_link" {
 
   response = {token: $token, email: $updated_password_reset.email}
   tags = ["xano:quick-start"]
+  guid = "_obsA2xUdo4pigm_dGVw3xJwdak"
 }
