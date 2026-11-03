@@ -1,19 +1,18 @@
 // Create a new academic subject
-query "subjects" verb=POST {
+// Create a new subject record owned by the authenticated user
+query subjects verb=POST {
   api_group = "Subjects"
   auth = "user"
-  description = "Create a new subject record owned by the authenticated user"
 
   input {
-    text name filters=trim {
-      description = "Mandatory name of the academic subject"
-    }
-    text? teacher filters=trim {
-      description = "Optional instructor or teacher name"
-    }
-    int? hours filters=min:0 {
-      description = "Optional workload hours"
-    }
+    // Mandatory name of the academic subject
+    text name filters=trim
+  
+    // Optional instructor or teacher name
+    text? teacher filters=trim
+  
+    // Optional workload hours
+    int? hours filters=min:0
   }
 
   stack {
@@ -21,7 +20,7 @@ query "subjects" verb=POST {
       error_type = "badrequest"
       error = "Subject name is required."
     }
-
+  
     db.add subjects {
       data = {
         created_at: "now"
@@ -36,4 +35,3 @@ query "subjects" verb=POST {
   response = $new_subject
   guid = "gOywh_lWjZPxpJYX4vZYpBzdDec"
 }
-

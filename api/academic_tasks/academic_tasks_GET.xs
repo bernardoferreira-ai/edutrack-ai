@@ -1,16 +1,15 @@
 // List academic tasks for the authenticated user
-query "academic_tasks" verb=GET {
+// List all academic tasks belonging to the authenticated user with optional filtering
+query academic_tasks verb=GET {
   api_group = "Academic Tasks"
   auth = "user"
-  description = "List all academic tasks belonging to the authenticated user with optional filtering"
 
   input {
-    int? subject_id {
-      description = "Optional filter by subject ID"
-    }
-    text? status filters=trim {
-      description = "Optional filter by task status"
-    }
+    // Optional filter by subject ID
+    int? subject_id
+  
+    // Optional filter by task status
+    text? status filters=trim
   }
 
   stack {
@@ -23,4 +22,3 @@ query "academic_tasks" verb=GET {
   response = $user_tasks
   guid = "CXCJmdhHPK-h81f9Es11tyc3YmY"
 }
-
