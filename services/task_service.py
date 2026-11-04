@@ -21,6 +21,9 @@ def _load_env_file():
 
 _load_env_file()
 
+# Canonical defined in api/academic_tasks/academic_tasks.xs
+TASKS_CANONICAL = "T4bwHPe_"
+
 # Initial fallback sample data for standalone / offline mode
 INITIAL_TASKS = [
     {
@@ -43,21 +46,33 @@ INITIAL_TASKS = [
     }
 ]
 
+def _normalize_date_for_xano(d_str: Optional[str]) -> Optional[str]:
+    """Converte datas DD/MM/YYYY para formato ISO YYYY-MM-DD exigido pelo Xano."""
+    if not d_str:
+        return None
+    cleaned = d_str.strip()
+    if "/" in cleaned:
+        parts = cleaned.split("/")
+        if len(parts) == 3 and len(parts[2]) == 4:
+            return f"{parts[2]}-{parts[1].zfill(2)}-{parts[0].zfill(2)}"
+    return cleaned
+
+
 class TaskService:
     def __init__(self, api_url: Optional[str] = None, auth_token: Optional[str] = None):
         _load_env_file()
         self.api_url = (
             api_url 
+            or os.getenv("XANO_TASKS_URL")
             or os.getenv("XANO_API_URL") 
             or os.getenv("URL_BASE_ALT")
-            or os.getenv("XANO_TASKS_URL")
         )
         if self.api_url:
             self.api_url = self.api_url.rstrip("/")
         self.auth_token = auth_token or os.getenv("XANO_AUTH_TOKEN")
-        # In-memory fallback repository
         self._fallback_store: List[Dict[str, Any]] = [dict(t) for t in INITIAL_TASKS]
         self._next_id: int = max([t["id"] for t in self._fallback_store], default=0) + 1
+        self._working_base_url: Optional[str] = None
 
     def _headers(self, token: Optional[str] = None) -> Dict[str, str]:
         headers = {"Content-Type": "application/json"}
@@ -66,6 +81,53 @@ class TaskService:
             headers["Authorization"] = f"Bearer {active_token}"
         return headers
 
+    def _get_candidate_urls(self, endpoint_suffix: str) -> List[str]:
+        """Gera URLs candidatas para o endpoint (canonical do grupo e fallback de URL_BASE_ALT)."""
+        suffix = endpoint_suffix.lstrip("/")
+        if self._working_base_url:
+            return [f"{self._working_base_url}/{suffix}"]
+
+        candidates = []
+        base = self.api_url or "https://x8ki-letl-twmt.n7.xano.io/api:dyXfRo9-"
+        
+        if "/api:" in base:
+            host = base.split("/api:")[0]
+            # 1. URL com o canonical do grupo Academic Tasks (T4bwHPe_)
+            candidates.append(f"{host}/api:{TASKS_CANONICAL}/{suffix}")
+            # 2. URL com o grupo de URL_BASE_ALT
+            candidates.append(f"{base}/{suffix}")
+        else:
+            candidates.append(f"{base}/{suffix}")
+
+        return candidates
+
+    def _dispatch_request(self, method: str, endpoint_suffix: str, token: Optional[str] = None, **kwargs) -> requests.Response:
+        """Executa requisição tentando as URLs candidatas do Xano."""
+        active_token = token or self.auth_token
+        headers = self._headers(active_token)
+        candidates = self._get_candidate_urls(endpoint_suffix)
+        last_resp = None
+        last_exc = None
+
+        for url in candidates:
+            try:
+                resp = requests.request(method, url, headers=headers, timeout=6, **kwargs)
+                if resp.status_code == 404 and len(candidates) > 1:
+                    last_resp = resp
+                    continue
+                if resp.status_code < 500:
+                    base_used = url.rsplit(f"/{endpoint_suffix.lstrip('/')}", 1)[0]
+                    self._working_base_url = base_used
+                return resp
+            except Exception as e:
+                last_exc = e
+
+        if last_resp is not None:
+            return last_resp
+        if last_exc:
+            raise last_exc
+        raise RuntimeError("Não foi possível conectar ao servidor Xano.")
+
     def list_tasks(
         self,
         token: Optional[str] = None,
@@ -73,13 +135,12 @@ class TaskService:
         status: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         active_token = token or self.auth_token
-        if self.api_url and active_token:
+        if active_token:
             try:
                 params: Dict[str, Any] = {}
                 if subject_id:
-                    params["subject_id"] = subject_id
+                    params["subject_id"] = int(subject_id)
                 if status and status != "Todas":
-                    # Normalize Portuguese label to backend standard if necessary
                     mapped_status = status.lower()
                     if mapped_status in ["concluída", "concluida"]:
                         mapped_status = "completed"
@@ -87,16 +148,19 @@ class TaskService:
                         mapped_status = "pending"
                     params["status"] = mapped_status
 
-                url = f"{self.api_url}/academic_tasks"
-                resp = requests.get(url, headers=self._headers(active_token), params=params, timeout=5)
+                resp = self._dispatch_request("GET", "academic_tasks", token=active_token, params=params)
                 if resp.status_code == 200:
-                    return resp.json()
+                    data = resp.json()
+                    if isinstance(data, list):
+                        return data
+                elif resp.status_code == 401:
+                    pass
             except Exception:
-                pass  # Fall back to in-memory store
+                pass  # Fallback quando offline
 
         results = self._fallback_store
         if subject_id:
-            results = [t for t in results if t.get("subject_id") == subject_id]
+            results = [t for t in results if t.get("subject_id") == int(subject_id)]
         if status and status != "Todas":
             mapped_status = status.lower()
             if mapped_status in ["concluída", "concluida"]:
@@ -108,10 +172,9 @@ class TaskService:
 
     def get_task(self, task_id: int, token: Optional[str] = None) -> Optional[Dict[str, Any]]:
         active_token = token or self.auth_token
-        if self.api_url and active_token:
+        if active_token:
             try:
-                url = f"{self.api_url}/academic_tasks/{task_id}"
-                resp = requests.get(url, headers=self._headers(active_token), timeout=5)
+                resp = self._dispatch_request("GET", f"academic_tasks/{task_id}", token=active_token)
                 if resp.status_code == 200:
                     return resp.json()
             except Exception:
@@ -135,32 +198,39 @@ class TaskService:
         if not cleaned_title:
             raise ValueError("O título da tarefa é obrigatório.")
 
+        resolved_desc = (description or "").strip()
         payload: Dict[str, Any] = {
             "title": cleaned_title,
-            "subject_id": subject_id,
+            "subject_id": int(subject_id),
+            "description": resolved_desc,
             "status": status if status in ["pending", "completed"] else "pending"
         }
-        if description:
-            payload["description"] = description.strip()
         if due_date:
-            payload["due_date"] = due_date
+            normalized_date = _normalize_date_for_xano(due_date)
+            if normalized_date:
+                payload["due_date"] = normalized_date
 
         active_token = token or self.auth_token
-        if self.api_url and active_token:
-            try:
-                url = f"{self.api_url}/academic_tasks"
-                resp = requests.post(url, headers=self._headers(active_token), json=payload, timeout=5)
-                if resp.status_code in (200, 201):
-                    return resp.json()
-            except Exception:
-                pass
+        if active_token:
+            resp = self._dispatch_request("POST", "academic_tasks", token=active_token, json=payload)
+            if resp.status_code in (200, 201):
+                record = resp.json()
+                if "due_date" not in record or not record.get("due_date"):
+                    record["due_date"] = due_date
+                return record
+            else:
+                try:
+                    err_msg = resp.json().get("message") or resp.text
+                except Exception:
+                    err_msg = resp.text
+                raise RuntimeError(f"Erro do Xano ({resp.status_code}): {err_msg}")
 
         # Fallback creation
         record = {
             "id": self._next_id,
             "created_at": "2026-09-23T12:00:00Z",
             "title": cleaned_title,
-            "subject_id": subject_id,
+            "subject_id": int(subject_id),
             "description": description.strip() if description else "",
             "due_date": due_date or "20/02/2026",
             "status": status if status in ["pending", "completed"] else "pending"
@@ -171,33 +241,47 @@ class TaskService:
 
     def update_task(self, task_id: int, token: Optional[str] = None, **fields) -> Optional[Dict[str, Any]]:
         active_token = token or self.auth_token
-        if self.api_url and active_token:
-            try:
-                url = f"{self.api_url}/academic_tasks/{task_id}"
-                resp = requests.patch(url, headers=self._headers(active_token), json=fields, timeout=5)
-                if resp.status_code == 200:
-                    return resp.json()
-            except Exception:
-                pass
+        payload = {}
+        for k, v in fields.items():
+            if v is not None:
+                if k == "due_date" and isinstance(v, str):
+                    payload[k] = _normalize_date_for_xano(v)
+                elif k == "subject_id":
+                    payload[k] = int(v)
+                else:
+                    payload[k] = v.strip() if isinstance(v, str) else v
+
+        if active_token:
+            resp = self._dispatch_request("PATCH", f"academic_tasks/{task_id}", token=active_token, json=payload)
+            if resp.status_code == 200:
+                return resp.json()
+            else:
+                try:
+                    err_msg = resp.json().get("message") or resp.text
+                except Exception:
+                    err_msg = resp.text
+                raise RuntimeError(f"Erro do Xano ({resp.status_code}): {err_msg}")
 
         for t in self._fallback_store:
             if t.get("id") == task_id:
                 for k, v in fields.items():
                     if v is not None:
-                        t[k] = v.strip() if isinstance(v, str) else v
+                        t[k] = v
                 return dict(t)
         return None
 
     def delete_task(self, task_id: int, token: Optional[str] = None) -> bool:
         active_token = token or self.auth_token
-        if self.api_url and active_token:
-            try:
-                url = f"{self.api_url}/academic_tasks/{task_id}"
-                resp = requests.delete(url, headers=self._headers(active_token), timeout=5)
-                if resp.status_code in (200, 204):
-                    return True
-            except Exception:
-                pass
+        if active_token:
+            resp = self._dispatch_request("DELETE", f"academic_tasks/{task_id}", token=active_token)
+            if resp.status_code in (200, 204):
+                return True
+            else:
+                try:
+                    err_msg = resp.json().get("message") or resp.text
+                except Exception:
+                    err_msg = resp.text
+                raise RuntimeError(f"Erro do Xano ({resp.status_code}): {err_msg}")
 
         for i, t in enumerate(self._fallback_store):
             if t.get("id") == task_id:
@@ -206,6 +290,5 @@ class TaskService:
         return False
 
 
-# Default global instance for use across Streamlit pages
+# Default global instance
 default_task_service = TaskService()
-
