@@ -46,6 +46,27 @@ if st.session_state["auth_token"]:
     st.markdown("---")
     st.success("✅ Você está autenticado na plataforma.")
 
+    # Opção de Download do Relatório em PDF
+    st.subheader("📄 Relatório de Desempenho")
+    st.write("Baixe o relatório acadêmico oficial consolidado em formato PDF.")
+    try:
+        from scripts.generate_student_report import generate_report_bytes
+        student_name = profile.get("name", "Aluno EduTrack")
+        pdf_bytes = generate_report_bytes(
+            student_name=student_name,
+            auth_token=st.session_state["auth_token"]
+        )
+        st.download_button(
+            label="📥 Baixar Relatório de Desempenho (PDF)",
+            data=pdf_bytes,
+            file_name=f"relatorio_desempenho_{student_name.replace(' ', '_').lower()}.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
+    except Exception as e:
+        st.warning(f"Não foi possível carregar o relatório PDF: {e}")
+
+    st.markdown("---")
     # Logout button
     if st.button("🚪 Sair da Conta (Logout)", type="secondary"):
         st.session_state["auth_token"] = None

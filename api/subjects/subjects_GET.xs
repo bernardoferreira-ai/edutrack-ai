@@ -1,5 +1,4 @@
-// List all subjects belonging to the authenticated user
-// List all academic subjects for the authenticated user
+// Query all subjects records
 query subjects verb=GET {
   api_group = "Subjects"
   auth = "user"
@@ -9,11 +8,10 @@ query subjects verb=GET {
 
   stack {
     db.query subjects {
-      where = $db.subjects.user_id == $auth.id
       return = {type: "list"}
-    } as $user_subjects
+    } as $model
   }
 
-  response = $user_subjects
-  guid = "l0bGxFxTGGqCubzbgLE01za3S28"
+  response = $model
+  guid = "m6MN6BuPjkxc7SSrK1AY5_7Q3J0"
 }

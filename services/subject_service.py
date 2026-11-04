@@ -21,6 +21,9 @@ def _load_env_file():
 
 _load_env_file()
 
+# Canonical defined in api/subjects/subjects.xs
+SUBJECTS_CANONICAL = "yhqYbIq3"
+
 # Initial fallback sample data for standalone / offline mode
 INITIAL_SUBJECTS = [
     {
@@ -64,21 +67,22 @@ INITIAL_SUBJECTS = [
     }
 ]
 
+
 class SubjectService:
     def __init__(self, api_url: Optional[str] = None, auth_token: Optional[str] = None):
         _load_env_file()
         self.api_url = (
             api_url 
+            or os.getenv("XANO_SUBJECTS_URL")
             or os.getenv("XANO_API_URL") 
             or os.getenv("URL_BASE_ALT")
-            or os.getenv("XANO_SUBJECTS_URL")
         )
         if self.api_url:
             self.api_url = self.api_url.rstrip("/")
         self.auth_token = auth_token or os.getenv("XANO_AUTH_TOKEN")
-        # In-memory fallback repository
         self._fallback_store: List[Dict[str, Any]] = [dict(s) for s in INITIAL_SUBJECTS]
         self._next_id: int = max([s["id"] for s in self._fallback_store], default=0) + 1
+        self._working_base_url: Optional[str] = None
 
     def _headers(self, token: Optional[str] = None) -> Dict[str, str]:
         headers = {"Content-Type": "application/json"}
@@ -87,17 +91,69 @@ class SubjectService:
             headers["Authorization"] = f"Bearer {active_token}"
         return headers
 
+    def _get_candidate_urls(self, endpoint_suffix: str) -> List[str]:
+        """Gera URLs candidatas para o endpoint (canonical do grupo e fallback de URL_BASE_ALT)."""
+        suffix = endpoint_suffix.lstrip("/")
+        if self._working_base_url:
+            return [f"{self._working_base_url}/{suffix}"]
+
+        candidates = []
+        base = self.api_url or "https://x8ki-letl-twmt.n7.xano.io/api:dyXfRo9-"
+        
+        if "/api:" in base:
+            host = base.split("/api:")[0]
+            # 1. URL com o canonical do grupo Subjects (yhqYbIq3)
+            candidates.append(f"{host}/api:{SUBJECTS_CANONICAL}/{suffix}")
+            # 2. URL com o grupo de URL_BASE_ALT
+            candidates.append(f"{base}/{suffix}")
+        else:
+            candidates.append(f"{base}/{suffix}")
+
+        return candidates
+
+    def _dispatch_request(self, method: str, endpoint_suffix: str, token: Optional[str] = None, **kwargs) -> requests.Response:
+        """Executa requisição tentando as URLs candidatas do Xano."""
+        active_token = token or self.auth_token
+        headers = self._headers(active_token)
+        candidates = self._get_candidate_urls(endpoint_suffix)
+        last_resp = None
+        last_exc = None
+
+        for url in candidates:
+            try:
+                resp = requests.request(method, url, headers=headers, timeout=6, **kwargs)
+                if resp.status_code == 404 and len(candidates) > 1:
+                    # Tenta o próximo candidato se 404
+                    last_resp = resp
+                    continue
+                # Se respondeu (2xx, 4xx, 5xx), grava base funcional
+                if resp.status_code < 500:
+                    base_used = url.rsplit(f"/{endpoint_suffix.lstrip('/')}", 1)[0]
+                    self._working_base_url = base_used
+                return resp
+            except Exception as e:
+                last_exc = e
+
+        if last_resp is not None:
+            return last_resp
+        if last_exc:
+            raise last_exc
+        raise RuntimeError("Não foi possível conectar ao servidor Xano.")
+
     def list_subjects(self, token: Optional[str] = None, status: Optional[str] = None) -> List[Dict[str, Any]]:
         active_token = token or self.auth_token
-        if self.api_url and active_token:
+        if active_token:
             try:
                 params = {"status": status} if status else {}
-                url = f"{self.api_url}/subjects"
-                resp = requests.get(url, headers=self._headers(active_token), params=params, timeout=5)
+                resp = self._dispatch_request("GET", "subjects", token=active_token, params=params)
                 if resp.status_code == 200:
-                    return resp.json()
+                    data = resp.json()
+                    if isinstance(data, list):
+                        return data
+                elif resp.status_code == 401:
+                    pass  # Token inválido ou expirado, usa fallback
             except Exception:
-                pass  # Fall back to in-memory store
+                pass  # Fallback quando offline ou sem rede
 
         results = self._fallback_store
         if status:
@@ -106,10 +162,9 @@ class SubjectService:
 
     def get_subject(self, subject_id: int, token: Optional[str] = None) -> Optional[Dict[str, Any]]:
         active_token = token or self.auth_token
-        if self.api_url and active_token:
+        if active_token:
             try:
-                url = f"{self.api_url}/subjects/{subject_id}"
-                resp = requests.get(url, headers=self._headers(active_token), timeout=5)
+                resp = self._dispatch_request("GET", f"subjects/{subject_id}", token=active_token)
                 if resp.status_code == 200:
                     return resp.json()
             except Exception:
@@ -125,11 +180,6 @@ class SubjectService:
         name: str,
         teacher: str = "",
         hours: Optional[int] = None,
-        code: str = "",
-        professor: str = "",
-        semester: str = "",
-        color: str = "",
-        status: str = "active",
         dia_semana: str = "Seg",
         token: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -137,25 +187,32 @@ class SubjectService:
         if not cleaned_name:
             raise ValueError("O nome da disciplina é obrigatório.")
 
-        resolved_teacher = (teacher or professor).strip()
-        payload = {
+        resolved_teacher = teacher.strip()
+        # Xano exige 'hours'; se não informado, define valor padrão de 60 horas
+        resolved_hours = int(hours) if hours is not None else 60
+        payload: Dict[str, Any] = {
             "name": cleaned_name,
             "teacher": resolved_teacher,
+            "hours": resolved_hours,
         }
-        if hours is not None:
-            payload["hours"] = hours
 
         active_token = token or self.auth_token
-        if self.api_url and active_token:
-            try:
-                url = f"{self.api_url}/subjects"
-                resp = requests.post(url, headers=self._headers(active_token), json=payload, timeout=5)
-                if resp.status_code in (200, 201):
-                    return resp.json()
-            except Exception:
-                pass
+        if active_token:
+            resp = self._dispatch_request("POST", "subjects", token=active_token, json=payload)
+            if resp.status_code in (200, 201):
+                record = resp.json()
+                if "dia_semana" not in record:
+                    record["dia_semana"] = dia_semana
+                return record
+            else:
+                try:
+                    err_json = resp.json()
+                    err_msg = err_json.get("message") or str(err_json)
+                except Exception:
+                    err_msg = resp.text
+                raise RuntimeError(f"Erro do Xano ({resp.status_code}): {err_msg}")
 
-        # Fallback creation
+        # Fallback creation para uso offline
         record = {
             "id": self._next_id,
             "created_at": "2026-09-23T12:00:00Z",
@@ -163,11 +220,8 @@ class SubjectService:
             "teacher": resolved_teacher,
             "professor": resolved_teacher,
             "hours": hours or 60,
-            "code": code.strip() if code else "",
-            "semester": semester.strip() if semester else "2026.1",
             "dia_semana": dia_semana,
-            "color": color.strip() if color else "#3B82F6",
-            "status": status if status in ["active", "completed", "archived"] else "active",
+            "status": "active",
         }
         self._next_id += 1
         self._fallback_store.append(record)
@@ -178,37 +232,41 @@ class SubjectService:
             raise ValueError("O nome da disciplina não pode ser vazio.")
 
         active_token = token or self.auth_token
-        if self.api_url and active_token:
-            try:
-                url = f"{self.api_url}/subjects/{subject_id}"
-                resp = requests.patch(url, headers=self._headers(active_token), json=fields, timeout=5)
-                if resp.status_code == 200:
-                    return resp.json()
-            except Exception:
-                pass
+        payload = {}
+        for k, v in fields.items():
+            if v is not None:
+                payload[k] = v.strip() if isinstance(v, str) else v
+
+        if active_token:
+            resp = self._dispatch_request("PATCH", f"subjects/{subject_id}", token=active_token, json=payload)
+            if resp.status_code == 200:
+                return resp.json()
+            else:
+                try:
+                    err_msg = resp.json().get("message") or resp.text
+                except Exception:
+                    err_msg = resp.text
+                raise RuntimeError(f"Erro do Xano ({resp.status_code}): {err_msg}")
 
         for s in self._fallback_store:
             if s.get("id") == subject_id:
-                for k, v in fields.items():
-                    if v is not None:
-                        s[k] = v.strip() if isinstance(v, str) else v
-                        if k == "teacher":
-                            s["professor"] = s[k]
-                        elif k == "professor":
-                            s["teacher"] = s[k]
+                for k, v in payload.items():
+                    s[k] = v
                 return dict(s)
         return None
 
     def delete_subject(self, subject_id: int, token: Optional[str] = None) -> bool:
         active_token = token or self.auth_token
-        if self.api_url and active_token:
-            try:
-                url = f"{self.api_url}/subjects/{subject_id}"
-                resp = requests.delete(url, headers=self._headers(active_token), timeout=5)
-                if resp.status_code in (200, 204):
-                    return True
-            except Exception:
-                pass
+        if active_token:
+            resp = self._dispatch_request("DELETE", f"subjects/{subject_id}", token=active_token)
+            if resp.status_code in (200, 204):
+                return True
+            else:
+                try:
+                    err_msg = resp.json().get("message") or resp.text
+                except Exception:
+                    err_msg = resp.text
+                raise RuntimeError(f"Erro do Xano ({resp.status_code}): {err_msg}")
 
         for i, s in enumerate(self._fallback_store):
             if s.get("id") == subject_id:
@@ -216,10 +274,6 @@ class SubjectService:
                 return True
         return False
 
-    def get_active_count(self, token: Optional[str] = None) -> int:
-        subjects = self.list_subjects(token=token, status="active")
-        return len(subjects)
 
-
-# Default global instance for use across Streamlit pages
+# Default global instance
 default_subject_service = SubjectService()
