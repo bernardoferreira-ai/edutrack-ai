@@ -22,7 +22,7 @@ query academic_tasks verb=POST {
   }
 
   stack {
-    precondition ($input.title != null && ($input.title|length) > 0) {
+    precondition ($input.title != null && $input.title != "") {
       error_type = "badrequest"
       error = "Task title is required."
     }
