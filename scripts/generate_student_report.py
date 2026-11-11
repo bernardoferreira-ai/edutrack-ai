@@ -21,29 +21,20 @@ try:
 except ImportError:
     requests = None
 
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if base_dir not in sys.path:
+    sys.path.insert(0, base_dir)
+
+try:
+    from services.config import get_config
+except ImportError:
+    def get_config(k, default=None):
+        return os.getenv(k, default)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. Carregamento de Configurações de Ambiente
 # ─────────────────────────────────────────────────────────────────────────────
-def load_env_file():
-    """Carrega variáveis de ambiente do arquivo .env caso exista."""
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    env_path = os.path.join(base_dir, ".env")
-    if os.path.exists(env_path):
-        try:
-            with open(env_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith("#") and "=" in line:
-                        k, v = line.split("=", 1)
-                        k = k.strip()
-                        v = v.strip().strip('"').strip("'")
-                        if k and not os.getenv(k):
-                            os.environ[k] = v
-        except Exception:
-            pass
-
-load_env_file()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -215,8 +206,8 @@ def fetch_student_data(api_url: Optional[str] = None, auth_token: Optional[str] 
     """Obtém disciplinas e tarefas da API do Xano via JWT ou carrega dados locais."""
     resolved_api = (
         api_url
-        or os.getenv("XANO_API_URL")
-        or os.getenv("URL_BASE_ALT")
+        or get_config("XANO_API_URL")
+        or get_config("URL_BASE_ALT")
         or "https://x8ki-letl-twmt.n7.xano.io/api:dyXfRo9-"
     ).rstrip("/")
 

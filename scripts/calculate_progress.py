@@ -5,25 +5,16 @@ import argparse
 from typing import List, Dict, Any, Optional, Union
 import requests
 
-def _load_env_file():
-    """Simple parser to load environment variables from .env if present."""
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    env_path = os.path.join(os.path.dirname(current_dir), ".env")
-    if os.path.exists(env_path):
-        try:
-            with open(env_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith("#") and "=" in line:
-                        k, v = line.split("=", 1)
-                        k = k.strip()
-                        v = v.strip().strip('"').strip("'")
-                        if k and not os.getenv(k):
-                            os.environ[k] = v
-        except Exception:
-            pass
+current_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.dirname(current_dir)
+if root_dir not in sys.path:
+    sys.path.insert(0, root_dir)
 
-_load_env_file()
+try:
+    from services.config import get_config
+except ImportError:
+    def get_config(k, default=None):
+        return os.getenv(k, default)
 
 
 def get_subject_tasks(
@@ -34,19 +25,18 @@ def get_subject_tasks(
     """
     Fetches academic tasks for a given subject from the CRUD API endpoint.
     """
-    _load_env_file()
     base_url = (
         api_url
-        or os.getenv("XANO_API_URL")
-        or os.getenv("URL_BASE_ALT")
+        or get_config("XANO_API_URL")
+        or get_config("URL_BASE_ALT")
         or ""
     ).rstrip("/")
 
-    token = auth_token or os.getenv("XANO_AUTH_TOKEN") or ""
+    token = auth_token or get_config("XANO_AUTH_TOKEN") or ""
 
     if not base_url:
         raise ValueError(
-            "API URL not provided and neither XANO_API_URL nor URL_BASE_ALT is set in environment."
+            "API URL not provided and neither XANO_API_URL nor URL_BASE_ALT is set in configuration."
         )
 
     url = f"{base_url}/academic_tasks"
