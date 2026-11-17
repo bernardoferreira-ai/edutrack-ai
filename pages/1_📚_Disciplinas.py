@@ -14,6 +14,23 @@ st.title("Gestão de Disciplinas")
 subject_service = SubjectService()
 token = st.session_state.get("auth_token")
 
+@st.dialog("Confirmar Exclusão")
+def confirmar_exclusao_disciplina(sub_id: int, sub_name: str):
+    st.warning(f"Você realmente deseja excluir a disciplina **{sub_name}**?")
+    st.caption("Esta ação removerá a disciplina permanentemente.")
+    col_sim, col_nao = st.columns(2)
+    with col_sim:
+        if st.button("Sim, excluir", type="primary", key=f"modal_confirm_del_{sub_id}"):
+            try:
+                subject_service.delete_subject(sub_id, token=token)
+                st.warning("Disciplina excluída com sucesso!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao excluir: {e}")
+    with col_nao:
+        if st.button("Cancelar", key=f"modal_cancel_del_{sub_id}"):
+            st.rerun()
+
 # Abas para separar Listagem de Cadastro
 tab_lista, tab_novo = st.tabs(["📋 Listar", "➕ Nova Disciplina"])
 
@@ -109,9 +126,5 @@ with tab_lista:
                     st.write("**Excluir Disciplina**")
                     st.caption("Esta ação removerá a disciplina permanentemente.")
                     if st.button("🗑️ Excluir", key=f"btn_del_{selected_subject['id']}", type="secondary"):
-                        try:
-                            subject_service.delete_subject(selected_subject["id"], token=token)
-                            st.warning("Disciplina excluída com sucesso!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao excluir: {e}")
+                        sub_name = selected_subject.get("name") or selected_subject.get("Nome") or f"Disciplina #{selected_subject['id']}"
+                        confirmar_exclusao_disciplina(selected_subject["id"], sub_name)

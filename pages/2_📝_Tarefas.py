@@ -18,6 +18,23 @@ def excluir_tarefa(task_id: int) -> bool:
     """Função utilitária para excluir uma tarefa pelo ID."""
     return task_service.delete_task(task_id, token=token)
 
+@st.dialog("Confirmar Exclusão")
+def confirmar_exclusao_tarefa(task_id: int, task_title: str):
+    st.warning(f"Você realmente deseja excluir a tarefa **{task_title}**?")
+    st.caption("Esta ação removerá a tarefa permanentemente.")
+    col_sim, col_nao = st.columns(2)
+    with col_sim:
+        if st.button("Sim, excluir", type="primary", key=f"modal_confirm_del_task_{task_id}"):
+            try:
+                excluir_tarefa(task_id)
+                st.warning("Tarefa excluída com sucesso!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao excluir: {e}")
+    with col_nao:
+        if st.button("Cancelar", key=f"modal_cancel_del_task_{task_id}"):
+            st.rerun()
+
 # Layout de busca e filtro existente
 col1, col2 = st.columns([3, 1]) # Coluna 1 é 3x maior que a 2
 
@@ -93,14 +110,9 @@ else:
                 except Exception as e:
                     st.error(f"Erro ao atualizar status: {e}")
 
-            # Opção de exclusão
+            # Opção de exclusão (com confirmação)
             if st.button("🗑️ Excluir Tarefa", key=f"del_task_btn_{task_id}_{idx}", type="secondary"):
-                try:
-                    excluir_tarefa(task_id)
-                    st.warning("Tarefa excluída com sucesso!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Erro ao excluir tarefa: {e}")
+                confirmar_exclusao_tarefa(task_id, title)
 
 # Gerenciamento de Tarefas (Exclusão por seleção)
 if all_tasks:
@@ -114,12 +126,7 @@ if all_tasks:
             sel_task_id = task_options[sel_task_label]
             st.caption("Esta ação removerá a tarefa permanentemente.")
             if st.button("🗑️ Excluir Tarefa Selecionada", key="btn_del_selected_task", type="secondary"):
-                try:
-                    excluir_tarefa(sel_task_id)
-                    st.warning("Tarefa excluída com sucesso!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Erro ao excluir tarefa: {e}")
+                confirmar_exclusao_tarefa(sel_task_id, sel_task_label)
 
 # Seção para cadastrar nova tarefa
 with st.expander("➕ Nova Tarefa"):
