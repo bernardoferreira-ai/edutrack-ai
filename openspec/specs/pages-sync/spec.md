@@ -47,6 +47,36 @@ The system SHALL allow users to delete an academic task from `pages/2_📝_Taref
 - **WHEN** a user selects a task in the "Gerenciar Tarefas (Excluir)" expander and clicks "Excluir Tarefa Selecionada"
 - **THEN** the system SHALL delete the selected task and update the list
 
+### Requirement: Subject Delete Confirmation
+The system SHALL prompt the user with a confirmation message ("Você realmente deseja excluir?") before executing the deletion of any subject on `pages/1_📚_Disciplinas.py`.
+
+#### Scenario: User triggers subject deletion
+- **WHEN** a user clicks the delete button for a subject
+- **THEN** the system SHALL display a confirmation prompt requesting confirmation before calling `DELETE /subjects/{id}`
+
+#### Scenario: User cancels subject deletion
+- **WHEN** a user selects the cancel option in the subject deletion prompt
+- **THEN** the system SHALL dismiss the prompt without deleting the subject
+
+#### Scenario: User confirms subject deletion
+- **WHEN** a user confirms the subject deletion prompt
+- **THEN** the system SHALL delete the subject record and refresh the view
+
+### Requirement: Task Delete Confirmation
+The system SHALL prompt the user with a confirmation message ("Você realmente deseja excluir?") before executing the deletion of any academic task on `pages/2_📝_Tarefas.py`.
+
+#### Scenario: User triggers task deletion
+- **WHEN** a user clicks the delete button for an academic task
+- **THEN** the system SHALL display a confirmation prompt requesting confirmation before calling `DELETE /academic_tasks/{id}`
+
+#### Scenario: User cancels task deletion
+- **WHEN** a user selects the cancel option in the task deletion prompt
+- **THEN** the system SHALL dismiss the prompt without deleting the task
+
+#### Scenario: User confirms task deletion
+- **WHEN** a user confirms the task deletion prompt
+- **THEN** the system SHALL delete the task record and refresh the view
+
 ### Requirement: Visual Structure and Layout Preservation
 The system SHALL preserve the exact visual appearance, component hierarchy, labels, and layout of `pages/1_📚_Disciplinas.py` and `pages/2_📝_Tarefas.py` without modifying colors, fonts, spacing, icons, or component arrangements.
 
