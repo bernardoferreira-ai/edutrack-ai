@@ -37,10 +37,12 @@ INITIAL_TASKS = [
 ]
 
 def _normalize_date_for_xano(d_str: Optional[str]) -> Optional[str]:
-    """Converte datas DD/MM/YYYY para formato ISO YYYY-MM-DD exigido pelo Xano."""
+    """Converte datas DD/MM/YYYY ou ISO com timestamp para formato YYYY-MM-DD exigido pelo Xano."""
     if not d_str:
         return None
-    cleaned = d_str.strip()
+    cleaned = str(d_str).strip()
+    if "T" in cleaned:
+        cleaned = cleaned.split("T")[0]
     if "/" in cleaned:
         parts = cleaned.split("/")
         if len(parts) == 3 and len(parts[2]) == 4:
@@ -59,8 +61,20 @@ class TaskService:
         if self.api_url:
             self.api_url = self.api_url.rstrip("/")
         self.auth_token = auth_token or get_config("XANO_AUTH_TOKEN")
-        self._fallback_store: List[Dict[str, Any]] = [dict(t) for t in INITIAL_TASKS]
-        self._next_id: int = max([t["id"] for t in self._fallback_store], default=0) + 1
+        
+        # Persist fallback store in Streamlit session_state across reruns
+        try:
+            import streamlit as st
+            if "_task_fallback_store" not in st.session_state:
+                st.session_state["_task_fallback_store"] = [dict(t) for t in INITIAL_TASKS]
+            self._fallback_store = st.session_state["_task_fallback_store"]
+            if "_task_next_id" not in st.session_state:
+                st.session_state["_task_next_id"] = max([t["id"] for t in self._fallback_store], default=0) + 1
+            self._next_id = st.session_state["_task_next_id"]
+        except Exception:
+            self._fallback_store = [dict(t) for t in INITIAL_TASKS]
+            self._next_id = max([t["id"] for t in self._fallback_store], default=0) + 1
+
         self._working_base_url: Optional[str] = None
 
     def _headers(self, token: Optional[str] = None) -> Dict[str, str]:
@@ -178,9 +192,10 @@ class TaskService:
         self,
         title: str,
         subject_id: int,
-        description: str = "",
+        description: Optional[str] = "",
         due_date: Optional[str] = None,
         status: str = "pending",
+        user_id: Optional[int] = None,
         token: Optional[str] = None
     ) -> Dict[str, Any]:
         cleaned_title = title.strip()
@@ -191,9 +206,23 @@ class TaskService:
         payload: Dict[str, Any] = {
             "title": cleaned_title,
             "subject_id": int(subject_id),
-            "description": resolved_desc,
             "status": status if status in ["pending", "completed"] else "pending"
         }
+        if resolved_desc:
+            payload["description"] = resolved_desc
+
+        # Vincula ao usuário autenticado se disponível
+        resolved_uid = user_id
+        if not resolved_uid:
+            try:
+                import streamlit as st
+                user_profile = st.session_state.get("user_profile")
+                if user_profile and isinstance(user_profile, dict) and "id" in user_profile:
+                    resolved_uid = user_profile["id"]
+            except Exception:
+                pass
+        if resolved_uid:
+            payload["user_id"] = int(resolved_uid)
         if due_date:
             normalized_date = _normalize_date_for_xano(due_date)
             if normalized_date:
@@ -225,6 +254,11 @@ class TaskService:
             "status": status if status in ["pending", "completed"] else "pending"
         }
         self._next_id += 1
+        try:
+            import streamlit as st
+            st.session_state["_task_next_id"] = self._next_id
+        except Exception:
+            pass
         self._fallback_store.append(record)
         return dict(record)
 
@@ -264,6 +298,11 @@ class TaskService:
         if active_token:
             resp = self._dispatch_request("DELETE", f"academic_tasks/{task_id}", token=active_token)
             if resp.status_code in (200, 204):
+                # Mantém sincronizado com fallback store local
+                for i, t in enumerate(self._fallback_store):
+                    if t.get("id") == task_id:
+                        self._fallback_store.pop(i)
+                        break
                 return True
             else:
                 try:
