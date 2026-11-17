@@ -14,6 +14,10 @@ task_service = TaskService()
 subject_service = SubjectService()
 token = st.session_state.get("auth_token")
 
+def excluir_tarefa(task_id: int) -> bool:
+    """Função utilitária para excluir uma tarefa pelo ID."""
+    return task_service.delete_task(task_id, token=token)
+
 # Layout de busca e filtro existente
 col1, col2 = st.columns([3, 1]) # Coluna 1 é 3x maior que a 2
 
@@ -56,10 +60,15 @@ filtered_tasks = [
 
 # Renderizar tarefas ou mockup inicial
 if not filtered_tasks:
-    with st.expander("📌 Tarefa 01: Configuração do Ambiente (Clique para ver)", expanded=True):
-        st.write("**Disciplina:** Innovation Lab")
-        st.write("**Prazo:** 20/02/2026")
-        st.checkbox("Marcar como Concluída", value=True, key="mockup_chk")
+    if not st.session_state.get("hide_mockup_task"):
+        with st.expander("📌 Tarefa 01: Configuração do Ambiente (Clique para ver)", expanded=True):
+            st.write("**Disciplina:** Innovation Lab")
+            st.write("**Prazo:** 20/02/2026")
+            st.checkbox("Marcar como Concluída", value=True, key="mockup_chk")
+            if st.button("🗑️ Excluir Tarefa", key="del_task_btn_mockup", type="secondary"):
+                st.session_state["hide_mockup_task"] = True
+                st.warning("Tarefa excluída com sucesso!")
+                st.rerun()
 else:
     for idx, task in enumerate(filtered_tasks):
         task_id = task.get("id")
@@ -87,7 +96,26 @@ else:
             # Opção de exclusão
             if st.button("🗑️ Excluir Tarefa", key=f"del_task_btn_{task_id}_{idx}", type="secondary"):
                 try:
-                    task_service.delete_task(task_id, token=token)
+                    excluir_tarefa(task_id)
+                    st.warning("Tarefa excluída com sucesso!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao excluir tarefa: {e}")
+
+# Gerenciamento de Tarefas (Exclusão por seleção)
+if all_tasks:
+    with st.expander("⚙️ Gerenciar Tarefas (Excluir)"):
+        task_options = {
+            f"{t.get('title', 'Sem título')} (ID: {t.get('id')})": t.get("id")
+            for t in all_tasks if t.get("id") is not None
+        }
+        if task_options:
+            sel_task_label = st.selectbox("Selecione a tarefa para excluir", list(task_options.keys()))
+            sel_task_id = task_options[sel_task_label]
+            st.caption("Esta ação removerá a tarefa permanentemente.")
+            if st.button("🗑️ Excluir Tarefa Selecionada", key="btn_del_selected_task", type="secondary"):
+                try:
+                    excluir_tarefa(sel_task_id)
                     st.warning("Tarefa excluída com sucesso!")
                     st.rerun()
                 except Exception as e:
@@ -123,7 +151,7 @@ with st.expander("➕ Nova Tarefa"):
                     task_service.create_task(
                         title=novo_titulo.strip(),
                         subject_id=sel_sub_id,
-                        description=nova_desc.strip() if nova_desc else "",
+                        description=nova_desc.strip() if nova_desc and nova_desc.strip() else None,
                         due_date=novo_prazo.strip() if novo_prazo else None,
                         token=token
                     )

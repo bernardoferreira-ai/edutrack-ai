@@ -1,24 +1,17 @@
-// List academic tasks for the authenticated user
-// List all academic tasks belonging to the authenticated user with optional filtering
+// Query all academic_tasks records
 query academic_tasks verb=GET {
   api_group = "Academic Tasks"
   auth = "user"
 
   input {
-    // Optional filter by subject ID
-    int? subject_id
-  
-    // Optional filter by task status
-    text? status filters=trim
   }
 
   stack {
     db.query academic_tasks {
-      where = $db.academic_tasks.user_id == $auth.id && ($input.subject_id == null || $db.academic_tasks.subject_id == $input.subject_id) && ($input.status == null || $db.academic_tasks.status == $input.status)
       return = {type: "list"}
-    } as $user_tasks
+    } as $model
   }
 
-  response = $user_tasks
-  guid = "CXCJmdhHPK-h81f9Es11tyc3YmY"
+  response = $model
+  guid = "uogfgLR7-sQ6g-mBohP9MFAEeMg"
 }

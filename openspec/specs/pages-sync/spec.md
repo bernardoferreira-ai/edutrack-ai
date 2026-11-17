@@ -36,6 +36,17 @@ The system SHALL retrieve academic tasks belonging to the authenticated user fro
 - **WHEN** an authenticated user creates a new task or deletes an existing task
 - **THEN** the system SHALL invoke `POST /academic_tasks` or `DELETE /academic_tasks/{id}` with the JWT token and refresh the task view
 
+### Requirement: Task Deletion on Tarefas Page
+The system SHALL allow users to delete an academic task from `pages/2_📝_Tarefas.py`, dispatching a `DELETE /academic_tasks/{id}` request with the JWT bearer token or removing the record from local session fallback store.
+
+#### Scenario: User deletes a task from card expander
+- **WHEN** an authenticated or local user clicks the "Excluir Tarefa" button inside a task expander
+- **THEN** the system SHALL remove the task from the database or session state, display a confirmation message, and refresh the interface
+
+#### Scenario: User deletes a task from management section
+- **WHEN** a user selects a task in the "Gerenciar Tarefas (Excluir)" expander and clicks "Excluir Tarefa Selecionada"
+- **THEN** the system SHALL delete the selected task and update the list
+
 ### Requirement: Visual Structure and Layout Preservation
 The system SHALL preserve the exact visual appearance, component hierarchy, labels, and layout of `pages/1_📚_Disciplinas.py` and `pages/2_📝_Tarefas.py` without modifying colors, fonts, spacing, icons, or component arrangements.
 
