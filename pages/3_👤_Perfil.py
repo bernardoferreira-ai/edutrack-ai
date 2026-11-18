@@ -161,13 +161,13 @@ st.markdown(
 
     /* Auth View Specific */
     .auth-hero {
-        background: linear-gradient(135deg, #1e293b 0%, #334155 60%, #475569 100%);
+        background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4338ca 100%);
         border-radius: 20px;
         padding: 2.2rem 2rem;
         color: #ffffff;
         text-align: center;
-        box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.2);
-        margin-bottom: 1.5rem;
+        box-shadow: 0 10px 25px -5px rgba(49, 46, 129, 0.25);
+        margin-bottom: 2rem;
     }
     .auth-hero-icon {
         font-size: 2.6rem;
@@ -181,7 +181,7 @@ st.markdown(
     }
     .auth-hero-subtitle {
         font-size: 0.95rem;
-        color: #cbd5e1;
+        color: rgba(255, 255, 255, 0.85);
         margin-top: 0.4rem;
         max-width: 520px;
         margin-left: auto;
@@ -189,11 +189,50 @@ st.markdown(
     }
     .auth-card-container {
         background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 18px;
-        padding: 1.5rem 1.7rem;
-        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
-        margin-bottom: 1.5rem;
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        border-radius: 22px;
+        padding: 2rem 2.2rem;
+        box-shadow: 0 14px 38px -6px rgba(15, 23, 42, 0.09);
+        margin-bottom: 2rem;
+    }
+
+    /* Auth Form Specific Styling */
+    .auth-card-container [data-testid="stForm"] {
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+    }
+    .auth-card-container [data-testid="stForm"] input[type="text"],
+    .auth-card-container [data-testid="stForm"] input[type="password"] {
+        background: #f8fafc !important;
+        border: 1.5px solid #e2e8f0 !important;
+        border-radius: 12px !important;
+        padding: 0.65rem 0.9rem !important;
+        font-size: 0.95rem !important;
+        color: #0f172a !important;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+    }
+    .auth-card-container [data-testid="stForm"] input:focus {
+        border-color: #4338ca !important;
+        box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.14) !important;
+        background: #ffffff !important;
+    }
+    .auth-card-container [data-testid="stForm"] button {
+        background: linear-gradient(135deg, #1e1b4b 0%, #4338ca 100%) !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 12px !important;
+        padding: 0.75rem 1.2rem !important;
+        font-weight: 700 !important;
+        font-size: 1rem !important;
+        letter-spacing: 0.01em !important;
+        box-shadow: 0 6px 20px -2px rgba(67, 56, 202, 0.35) !important;
+        transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+        margin-top: 0.6rem !important;
+    }
+    .auth-card-container [data-testid="stForm"] button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 24px -2px rgba(67, 56, 202, 0.45) !important;
     }
     </style>
     """,
@@ -316,59 +355,65 @@ else:
         unsafe_allow_html=True,
     )
 
-    st.markdown('<div class="auth-card-container">', unsafe_allow_html=True)
-    tab_login, tab_signup = st.tabs(["🔑 Entrar (Login)", "📝 Criar Conta (Cadastro)"])
+    # Centralização da caixa de autenticação para layout harmonioso
+    col_l, col_center, col_r = st.columns([1, 2.2, 1])
 
-    with tab_login:
-        st.subheader("Login na Plataforma")
-        with st.form("form_login"):
-            email = st.text_input("E-mail", placeholder="aluno@edutrack.ai")
-            password = st.text_input("Senha", type="password", placeholder="Digite sua senha")
-            btn_login = st.form_submit_button("Entrar", use_container_width=True)
+    with col_center:
+        st.markdown('<div class="auth-card-container">', unsafe_allow_html=True)
+        tab_login, tab_signup = st.tabs(["🔑 Entrar (Login)", "📝 Criar Conta (Cadastro)"])
 
-            if btn_login:
-                try:
-                    res = auth_service.login(email, password)
-                    token = res.get("authToken")
-                    if token:
-                        st.session_state["auth_token"] = token
-                        # Fetch profile
-                        try:
-                            user_data = auth_service.get_me(token)
-                            st.session_state["user_profile"] = user_data
-                        except Exception:
-                            st.session_state["user_profile"] = {"email": email, "id": res.get("user_id")}
-                        st.success("Login efetuado com sucesso!")
-                        st.rerun()
-                    else:
-                        st.error("Token de autenticação não retornado pelo servidor.")
-                except Exception as e:
-                    st.error(str(e))
+        with tab_login:
+            st.markdown("### Acessar Plataforma")
+            st.caption("Entre com seu e-mail e senha cadastrados.")
+            with st.form("form_login"):
+                email = st.text_input("E-mail", placeholder="aluno@edutrack.ai")
+                password = st.text_input("Senha", type="password", placeholder="Digite sua senha")
+                btn_login = st.form_submit_button("Entrar", use_container_width=True)
 
-    with tab_signup:
-        st.subheader("Novo Cadastro")
-        with st.form("form_signup"):
-            name = st.text_input("Nome Completo", placeholder="Seu Nome")
-            email = st.text_input("E-mail", placeholder="seu.email@exemplo.com")
-            password = st.text_input("Senha", type="password", placeholder="Mínimo 8 caracteres, 1 letra e 1 número")
-            btn_signup = st.form_submit_button("Cadastrar", use_container_width=True)
+                if btn_login:
+                    try:
+                        res = auth_service.login(email, password)
+                        token = res.get("authToken")
+                        if token:
+                            st.session_state["auth_token"] = token
+                            # Fetch profile
+                            try:
+                                user_data = auth_service.get_me(token)
+                                st.session_state["user_profile"] = user_data
+                            except Exception:
+                                st.session_state["user_profile"] = {"email": email, "id": res.get("user_id")}
+                            st.success("Login efetuado com sucesso!")
+                            st.rerun()
+                        else:
+                            st.error("Token de autenticação não retornado pelo servidor.")
+                    except Exception as e:
+                        st.error(str(e))
 
-            if btn_signup:
-                try:
-                    res = auth_service.signup(name, email, password)
-                    token = res.get("authToken")
-                    if token:
-                        st.session_state["auth_token"] = token
-                        try:
-                            user_data = auth_service.get_me(token)
-                            st.session_state["user_profile"] = user_data
-                        except Exception:
-                            st.session_state["user_profile"] = {"name": name, "email": email, "id": res.get("user_id")}
-                        st.success("Cadastro realizado com sucesso!")
-                        st.rerun()
-                    else:
-                        st.error("Token de autenticação não retornado pelo servidor.")
-                except Exception as e:
-                    st.error(str(e))
+        with tab_signup:
+            st.markdown("### Criar Nova Conta")
+            st.caption("Preencha os campos abaixo para iniciar seu cadastro.")
+            with st.form("form_signup"):
+                name = st.text_input("Nome Completo", placeholder="Seu Nome")
+                email = st.text_input("E-mail", placeholder="seu.email@exemplo.com")
+                password = st.text_input("Senha", type="password", placeholder="Mínimo 8 caracteres, 1 letra e 1 número")
+                btn_signup = st.form_submit_button("Cadastrar", use_container_width=True)
 
-    st.markdown("</div>", unsafe_allow_html=True)
+                if btn_signup:
+                    try:
+                        res = auth_service.signup(name, email, password)
+                        token = res.get("authToken")
+                        if token:
+                            st.session_state["auth_token"] = token
+                            try:
+                                user_data = auth_service.get_me(token)
+                                st.session_state["user_profile"] = user_data
+                            except Exception:
+                                st.session_state["user_profile"] = {"name": name, "email": email, "id": res.get("user_id")}
+                            st.success("Cadastro realizado com sucesso!")
+                            st.rerun()
+                        else:
+                            st.error("Token de autenticação não retornado pelo servidor.")
+                    except Exception as e:
+                        st.error(str(e))
+
+        st.markdown("</div>", unsafe_allow_html=True)
