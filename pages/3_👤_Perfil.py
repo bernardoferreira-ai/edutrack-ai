@@ -16,22 +16,28 @@ if "auth_token" not in st.session_state:
 if "user_profile" not in st.session_state:
     st.session_state["user_profile"] = None
 
-# Custom CSS for Modern, Polished Styling
+# Custom CSS for Dark Theme and Red Buttons
 st.markdown(
     """
     <style>
-    /* Global Container Enhancements */
+    /* Dark Theme Global Container */
     [data-testid="stAppViewContainer"] {
-        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 50%, #f8fafc 100%);
+        background: linear-gradient(180deg, #0b0f19 0%, #0f172a 50%, #0b0f19 100%);
+        color: #f8fafc;
+    }
+    [data-testid="stSidebar"] {
+        background-color: #111827;
+        border-right: 1px solid rgba(255, 255, 255, 0.08);
     }
 
-    /* Common Card Components */
+    /* Common Dark Card Components */
     .card-hero {
-        background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4338ca 100%);
+        background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 60%, #172554 100%);
         border-radius: 20px;
         padding: 2rem 2.2rem;
         color: #ffffff;
-        box-shadow: 0 10px 25px -5px rgba(49, 46, 129, 0.25);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.08);
         margin-bottom: 1.5rem;
         display: flex;
         align-items: center;
@@ -48,13 +54,13 @@ st.markdown(
         width: 64px;
         height: 64px;
         border-radius: 50%;
-        background: rgba(255, 255, 255, 0.16);
-        border: 2px solid rgba(255, 255, 255, 0.35);
+        background: rgba(255, 255, 255, 0.12);
+        border: 2px solid rgba(255, 255, 255, 0.25);
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 2rem;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }
     .hero-title {
         font-size: 1.85rem;
@@ -72,7 +78,7 @@ st.markdown(
         display: inline-flex;
         align-items: center;
         gap: 0.4rem;
-        background: rgba(16, 185, 129, 0.18);
+        background: rgba(16, 185, 129, 0.2);
         border: 1px solid rgba(16, 185, 129, 0.4);
         color: #6ee7b7;
         font-weight: 700;
@@ -82,7 +88,7 @@ st.markdown(
         backdrop-filter: blur(4px);
     }
 
-    /* Info Grid Cards */
+    /* Info Grid Cards in Dark Theme */
     .profile-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -90,23 +96,24 @@ st.markdown(
         margin-bottom: 1.5rem;
     }
     .metric-card {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
+        background: #161e2e;
+        border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 16px;
         padding: 1.2rem 1.3rem;
-        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
         transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
     .metric-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+        border-color: rgba(255, 255, 255, 0.15);
     }
     .metric-label {
         font-size: 0.78rem;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        color: #64748b;
+        color: #94a3b8;
         display: flex;
         align-items: center;
         gap: 0.4rem;
@@ -115,27 +122,29 @@ st.markdown(
     .metric-value {
         font-size: 1.15rem;
         font-weight: 700;
-        color: #0f172a;
+        color: #f8fafc;
         word-break: break-word;
     }
     .metric-badge {
         display: inline-block;
-        background: #e0e7ff;
-        color: #4338ca;
+        background: #1e1b4b;
+        color: #93c5fd;
+        border: 1px solid rgba(147, 197, 253, 0.2);
         font-size: 0.85rem;
         font-weight: 700;
         padding: 0.2rem 0.65rem;
         border-radius: 6px;
     }
 
-    /* Section Feature Card */
+    /* Section Feature Card in Dark Theme */
     .feature-card {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
+        background: #161e2e;
+        border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 18px;
         padding: 1.5rem;
-        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
         margin-bottom: 1.5rem;
+        color: #f8fafc;
     }
     .feature-card-header {
         display: flex;
@@ -146,14 +155,14 @@ st.markdown(
     .feature-card-title {
         font-size: 1.25rem;
         font-weight: 700;
-        color: #0f172a;
+        color: #f8fafc;
         margin: 0;
         display: flex;
         align-items: center;
         gap: 0.5rem;
     }
     .feature-card-desc {
-        color: #64748b;
+        color: #94a3b8;
         font-size: 0.92rem;
         margin-bottom: 1.2rem;
         line-height: 1.45;
@@ -161,12 +170,13 @@ st.markdown(
 
     /* Auth View Specific */
     .auth-hero {
-        background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4338ca 100%);
+        background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 60%, #172554 100%);
         border-radius: 20px;
         padding: 2.2rem 2rem;
         color: #ffffff;
         text-align: center;
-        box-shadow: 0 10px 25px -5px rgba(49, 46, 129, 0.25);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.08);
         margin-bottom: 2rem;
     }
     .auth-hero-icon {
@@ -188,15 +198,16 @@ st.markdown(
         margin-right: auto;
     }
     .auth-card-container {
-        background: #ffffff;
-        border: 1px solid rgba(226, 232, 240, 0.9);
+        background: #161e2e;
+        border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 22px;
         padding: 2rem 2.2rem;
-        box-shadow: 0 14px 38px -6px rgba(15, 23, 42, 0.09);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
         margin-bottom: 2rem;
+        color: #f8fafc;
     }
 
-    /* Auth Form Specific Styling */
+    /* Auth Form Specific Styling in Dark Mode */
     .auth-card-container [data-testid="stForm"] {
         background: transparent !important;
         border: none !important;
@@ -204,21 +215,21 @@ st.markdown(
     }
     .auth-card-container [data-testid="stForm"] input[type="text"],
     .auth-card-container [data-testid="stForm"] input[type="password"] {
-        background: #f8fafc !important;
-        border: 1.5px solid #e2e8f0 !important;
+        background: #0f172a !important;
+        border: 1.5px solid rgba(255, 255, 255, 0.12) !important;
         border-radius: 12px !important;
         padding: 0.65rem 0.9rem !important;
         font-size: 0.95rem !important;
-        color: #0f172a !important;
+        color: #f8fafc !important;
         transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
     }
     .auth-card-container [data-testid="stForm"] input:focus {
-        border-color: #4338ca !important;
-        box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.14) !important;
-        background: #ffffff !important;
+        border-color: #ef4444 !important;
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
+        background: #111827 !important;
     }
     .auth-card-container [data-testid="stForm"] button {
-        background: linear-gradient(135deg, #1e1b4b 0%, #4338ca 100%) !important;
+        background: linear-gradient(135deg, #b91c1c 0%, #dc2626 50%, #ef4444 100%) !important;
         color: #ffffff !important;
         border: none !important;
         border-radius: 12px !important;
@@ -226,13 +237,32 @@ st.markdown(
         font-weight: 700 !important;
         font-size: 1rem !important;
         letter-spacing: 0.01em !important;
-        box-shadow: 0 6px 20px -2px rgba(67, 56, 202, 0.35) !important;
+        box-shadow: 0 6px 20px -2px rgba(220, 38, 38, 0.45) !important;
         transition: transform 0.15s ease, box-shadow 0.15s ease !important;
         margin-top: 0.6rem !important;
     }
     .auth-card-container [data-testid="stForm"] button:hover {
+        background: linear-gradient(135deg, #991b1b 0%, #b91c1c 100%) !important;
         transform: translateY(-2px) !important;
-        box-shadow: 0 8px 24px -2px rgba(67, 56, 202, 0.45) !important;
+        box-shadow: 0 8px 24px -2px rgba(220, 38, 38, 0.6) !important;
+    }
+
+    /* Red Action Buttons (Logout & Destructive) */
+    button[data-testid="baseButton-secondary"],
+    .btn-red button {
+        background: linear-gradient(135deg, #b91c1c 0%, #dc2626 50%, #ef4444 100%) !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 12px !important;
+        box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35) !important;
+        font-weight: 700 !important;
+        transition: all 0.15s ease !important;
+    }
+    button[data-testid="baseButton-secondary"]:hover,
+    .btn-red button:hover {
+        background: linear-gradient(135deg, #991b1b 0%, #b91c1c 100%) !important;
+        box-shadow: 0 6px 20px rgba(220, 38, 38, 0.5) !important;
+        transform: translateY(-1px) !important;
     }
     </style>
     """,
@@ -332,7 +362,7 @@ if st.session_state["auth_token"]:
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # Logout Action Area
+    # Logout Action Area (Styled in red via secondary button)
     col_space, col_logout = st.columns([3, 1])
     with col_logout:
         if st.button("🚪 Sair da Conta (Logout)", type="secondary", use_container_width=True):

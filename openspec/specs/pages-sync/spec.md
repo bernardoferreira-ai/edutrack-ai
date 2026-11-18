@@ -88,6 +88,17 @@ The system SHALL render visually enhanced card containers, expander boxes, and i
 - **WHEN** a user navigates to `pages/1_📚_Disciplinas.py`
 - **THEN** the system SHALL display subject tabs, table containers, and management expanders with cohesive card styling and clean layout
 
+### Requirement: Dark Theme and Red Button Accents
+The system SHALL apply a dark background color scheme (black tending to dark grey) across platform pages and render selected action buttons (such as deletion and logout actions) with a red color scheme, preserving all existing options, labels, inputs, and functions.
+
+#### Scenario: User views pages in dark theme
+- **WHEN** a user navigates through the application pages (`app.py`, Disciplinas, Tarefas, Perfil)
+- **THEN** the system SHALL render dark grey backgrounds with high-contrast readable typography and styled dark content containers
+
+#### Scenario: User views deletion and action buttons
+- **WHEN** a user views task or subject deletion buttons and the profile logout action
+- **THEN** the system SHALL render those buttons with a vibrant red styling
+
 ### Requirement: Visual Structure and Layout Preservation
 The system SHALL preserve the exact visual appearance, component hierarchy, labels, and layout of `pages/1_📚_Disciplinas.py` and `pages/2_📝_Tarefas.py` without modifying colors, fonts, spacing, icons, or component arrangements.
 
