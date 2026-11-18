@@ -54,17 +54,48 @@ FALLBACK_TASKS = [
     {"id": 5, "subject_id": 3, "title": "Lista de Exercicios - Derivadas", "status": "pending", "due_date": "20/03/2026"},
 ]
 
+DEFAULT_GRADES_BY_SUBJECT = {
+    "Innovation Lab": [
+        {"name": "Trabalho 1 - Prototipo", "type": "Trabalho", "weight": 3, "grade": 9.0, "date": "10/03/2026"},
+        {"name": "Apresentacao Midterm", "type": "Apresentacao", "weight": 4, "grade": 8.5, "date": "25/03/2026"},
+        {"name": "Prova Final", "type": "Prova", "weight": 3, "grade": 7.0, "date": "10/04/2026"},
+    ],
+    "Engenharia de Software": [
+        {"name": "Quiz - UML", "type": "Quiz", "weight": 2, "grade": 6.5, "date": "15/03/2026"},
+        {"name": "Trabalho - Modelagem", "type": "Trabalho", "weight": 4, "grade": 8.0, "date": "30/03/2026"},
+        {"name": "Prova Bimestral", "type": "Prova", "weight": 4, "grade": 5.5, "date": "15/04/2026"},
+    ],
+    "Calculo Diferencial e Integral": [
+        {"name": "Lista 1 - Limites", "type": "Lista", "weight": 2, "grade": 4.0, "date": "20/03/2026"},
+        {"name": "Prova Parcial", "type": "Prova", "weight": 4, "grade": 3.5, "date": "05/04/2026"},
+        {"name": "Lista 2 - Derivadas", "type": "Lista", "weight": 2, "grade": 5.0, "date": "20/04/2026"},
+        {"name": "Prova Final", "type": "Prova", "weight": 4, "grade": None, "date": "10/05/2026"},
+    ],
+}
+
+APPROVAL_THRESHOLD = 7.0
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. Gerador Nativo de Documentos PDF 1.4 (Pure Python - Zero Dependências)
 # ─────────────────────────────────────────────────────────────────────────────
 class PDFCanvas:
-    """Gerador minimalista e robusto de PDF compatível com especificação PDF 1.4."""
+    """Gerador minimalista e robusto de PDF compatível com especificação PDF 1.4 (multi-página)."""
 
     def __init__(self, width=595.28, height=841.89):  # Padrão A4 em pontos (72 dpi)
         self.width = width
         self.height = height
-        self.stream_commands: List[str] = []
+        # Lista de páginas; cada página é uma lista de comandos de stream
+        self._pages: List[List[str]] = [[]]  # começa com a página 1
+
+    @property
+    def stream_commands(self) -> List[str]:
+        """Referência à página atual (última da lista)."""
+        return self._pages[-1]
+
+    def add_page(self):
+        """Adiciona uma nova página em branco e faz dela a página atual."""
+        self._pages.append([])
 
     def _sanitize(self, text: str) -> str:
         """Remove acentuações para renderização segura nas fontes nativas Type 1."""
@@ -102,29 +133,55 @@ class PDFCanvas:
         )
 
     def build_pdf_bytes(self) -> bytes:
-        """Compila a estrutura de objetos e a tabela de xref do arquivo PDF."""
-        content_stream = "\n".join(self.stream_commands).encode('ascii')
-        
+        """Compila a estrutura de objetos e a tabela de xref do arquivo PDF (multi-página)."""
+        num_pages = len(self._pages)
+
+        # Calcula os IDs de objeto:
+        # Obj 1: Catalog
+        # Obj 2: Pages
+        # Obj 3..2+num_pages: Page objects
+        # Obj 3+num_pages: Font F1
+        # Obj 4+num_pages: Font F2
+        # Obj 5+num_pages .. 4+2*num_pages: Content streams (um por página)
+        font_f1_id = 3 + num_pages
+        font_f2_id = 4 + num_pages
+        first_stream_id = 5 + num_pages
+
+        # Monta kid refs para o Pages dict
+        kids_refs = " ".join(f"{3 + i} 0 R" for i in range(num_pages))
+
         objects = []
-        # Objeto 1: Catalog
+
+        # Obj 1: Catalog
         objects.append(b"<< /Type /Catalog /Pages 2 0 R >>")
-        # Objeto 2: Pages
-        objects.append(b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>")
-        # Objeto 3: Page
+
+        # Obj 2: Pages
         objects.append(
-            f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {self.width:.2f} {self.height:.2f}] "
-            f"/Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>".encode('ascii')
+            f"<< /Type /Pages /Kids [{kids_refs}] /Count {num_pages} >>".encode('ascii')
         )
-        # Objeto 4: Fonte Normal (Helvetica)
+
+        # Obj 3..2+num_pages: Page objects (um por página)
+        for i in range(num_pages):
+            stream_id = first_stream_id + i
+            objects.append(
+                f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {self.width:.2f} {self.height:.2f}] "
+                f"/Resources << /Font << /F1 {font_f1_id} 0 R /F2 {font_f2_id} 0 R >> >> "
+                f"/Contents {stream_id} 0 R >>".encode('ascii')
+            )
+
+        # Obj font_f1_id: Fonte Normal (Helvetica)
         objects.append(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
-        # Objeto 5: Fonte Negrito (Helvetica-Bold)
+        # Obj font_f2_id: Fonte Negrito (Helvetica-Bold)
         objects.append(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>")
-        # Objeto 6: Stream de Conteudo
-        objects.append(
-            f"<< /Length {len(content_stream)} >>\nstream\n".encode('ascii') +
-            content_stream +
-            b"\nendstream"
-        )
+
+        # Content streams — um por página
+        for page_cmds in self._pages:
+            cs = "\n".join(page_cmds).encode('ascii')
+            objects.append(
+                f"<< /Length {len(cs)} >>\nstream\n".encode('ascii') +
+                cs +
+                b"\nendstream"
+            )
 
         # Montagem do arquivo com cálculo de offsets (xref)
         out = bytearray()
@@ -200,6 +257,49 @@ def calculate_performance_metrics(subjects: List[Dict[str, Any]], tasks: List[Di
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 5. Cálculo de Métricas de Notas por Disciplina
+# ─────────────────────────────────────────────────────────────────────────────
+def calculate_grades_metrics(subjects: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Calcula a média ponderada e o status de aprovação para cada disciplina."""
+    result = []
+    for s in subjects:
+        name = s.get("name", "")
+        evals = DEFAULT_GRADES_BY_SUBJECT.get(name, [])
+
+        # Filtra apenas avaliações com nota lançada
+        graded = [e for e in evals if e.get("grade") is not None]
+
+        if graded:
+            total_weight = sum(e.get("weight", 1) for e in graded)
+            weighted_sum = sum(e.get("grade", 0) * e.get("weight", 1) for e in graded)
+            average = round(weighted_sum / total_weight, 1) if total_weight > 0 else 0.0
+        else:
+            average = None
+
+        if average is None:
+            status = "Sem Notas"
+            points_missing = None
+        elif average >= APPROVAL_THRESHOLD:
+            status = "Aprovado"
+            points_missing = 0.0
+        elif average >= 5.0:
+            status = "Em Recuperacao"
+            points_missing = round(APPROVAL_THRESHOLD - average, 1)
+        else:
+            status = "Atencao Critica"
+            points_missing = round(APPROVAL_THRESHOLD - average, 1)
+
+        result.append({
+            "name": name,
+            "evals": evals,
+            "average": average,
+            "status": status,
+            "points_missing": points_missing,
+        })
+    return result
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # 5. Consulta de Dados na API do Xano (ou Fallback)
 # ─────────────────────────────────────────────────────────────────────────────
 def fetch_student_data(api_url: Optional[str] = None, auth_token: Optional[str] = None):
@@ -267,7 +367,7 @@ def fetch_student_data(api_url: Optional[str] = None, auth_token: Optional[str] 
 # ─────────────────────────────────────────────────────────────────────────────
 # 6. Renderização Visual do Documento PDF
 # ─────────────────────────────────────────────────────────────────────────────
-def render_performance_pdf(student_name: str, metrics: Dict[str, Any], tasks: List[Dict[str, Any]]) -> bytes:
+def render_performance_pdf(student_name: str, metrics: Dict[str, Any], tasks: List[Dict[str, Any]], grades_data: Optional[List[Dict[str, Any]]] = None) -> bytes:
     """Renderiza um documento PDF de design profissional com o desempenho acadêmico."""
     canvas = PDFCanvas(width=595.28, height=841.89)  # A4
     now_str = datetime.now().strftime("%d/%m/%Y as %H:%M")
@@ -418,13 +518,134 @@ def render_performance_pdf(student_name: str, metrics: Dict[str, Any], tasks: Li
 
         row_task_y -= 20.0
 
-    # 7. Rodapé do Documento
+    # 7. Rodapé do Documento (Página 1)
     canvas.set_stroke_color(*c_gray_border)
     canvas.draw_line(40, 50, 555, 50, line_width=0.6)
 
     canvas.set_fill_color(*c_text_muted)
     canvas.draw_text("EduTrack AI - Sistema de Gestao Academica Inteligente", 40, 36, size=8, bold=False)
     canvas.draw_text("Documento gerado automaticamente para fins de acompanhamento pedagogico.", 40, 24, size=7, bold=False)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # PÁGINA 2 — Boletim de Notas por Disciplina
+    # ─────────────────────────────────────────────────────────────────────────
+    if grades_data:
+        canvas.add_page()
+
+        c_orange = (0.85, 0.45, 0.05)
+        c_red    = (0.75, 0.15, 0.15)
+
+        # Header da Página 2
+        canvas.set_fill_color(*c_blue)
+        canvas.draw_rect(0, 770, 595.28, 72, fill=True, stroke=False)
+        canvas.set_fill_color(*c_white)
+        canvas.draw_text("EduTrack AI - Gestao Academica", 40, 810, size=18, bold=True)
+        canvas.draw_text("Boletim de Notas por Disciplina", 40, 788, size=11, bold=False)
+
+        canvas.set_fill_color(*c_text_dark)
+        canvas.draw_text(f"Estudante: {student_name}", 40, 740, size=12, bold=True)
+        canvas.set_fill_color(*c_text_muted)
+        canvas.draw_text(f"Data de Emissao: {now_str}", 380, 740, size=9, bold=False)
+
+        canvas.set_stroke_color(*c_gray_border)
+        canvas.draw_line(40, 730, 555, 730, line_width=0.8)
+
+        g_y = 710.0  # cursor vertical da página 2
+
+        for subj in grades_data:
+            # ── Bloco de cada disciplina ──
+            subj_name = subj["name"]
+            average   = subj["average"]
+            status    = subj["status"]
+            pts_miss  = subj["points_missing"]
+            evals     = subj["evals"]
+
+            # Cor do status
+            if status == "Aprovado":
+                badge_color = c_green
+            elif status == "Em Recuperacao":
+                badge_color = c_orange
+            else:
+                badge_color = c_red
+
+            # Fundo do cabeçalho da disciplina
+            canvas.set_fill_color(*c_blue_light)
+            canvas.set_stroke_color(*c_gray_border)
+            canvas.draw_rect(40, g_y - 18, 515, 22, fill=True, stroke=True)
+
+            canvas.set_fill_color(*c_blue)
+            canvas.draw_text(subj_name[:40], 48, g_y - 12, size=10, bold=True)
+
+            # Badge de status (caixa colorida + texto)
+            avg_str = f"{average:.1f}" if average is not None else "N/A"
+            badge_text = f"Media: {avg_str}  |  {status}"
+            canvas.set_fill_color(*badge_color)
+            canvas.draw_rect(380, g_y - 17, 170, 18, fill=True, stroke=False)
+            canvas.set_fill_color(*c_white)
+            canvas.draw_text(badge_text, 384, g_y - 11, size=8, bold=True)
+
+            g_y -= 22
+
+            # Faltando pontos (se aplicável)
+            if pts_miss and pts_miss > 0:
+                canvas.set_fill_color(*badge_color)
+                canvas.draw_text(f"  Faltam {pts_miss} pts para aprovacao", 48, g_y - 2, size=7, bold=False)
+                g_y -= 12
+
+            # Cabeçalho da tabela de avaliações
+            canvas.set_fill_color(0.80, 0.84, 0.90)
+            canvas.set_stroke_color(*c_gray_border)
+            canvas.draw_rect(50, g_y - 16, 505, 16, fill=True, stroke=True)
+            canvas.set_fill_color(*c_text_dark)
+            canvas.draw_text("Avaliacao", 56, g_y - 11, size=7, bold=True)
+            canvas.draw_text("Tipo", 280, g_y - 11, size=7, bold=True)
+            canvas.draw_text("Peso", 360, g_y - 11, size=7, bold=True)
+            canvas.draw_text("Nota", 420, g_y - 11, size=7, bold=True)
+            canvas.draw_text("Data", 470, g_y - 11, size=7, bold=True)
+            g_y -= 16
+
+            # Linhas de cada avaliação
+            for idx_e, ev in enumerate(evals):
+                bg = c_white if idx_e % 2 == 0 else c_gray_bg
+                canvas.set_fill_color(*bg)
+                canvas.set_stroke_color(*c_gray_border)
+                canvas.draw_rect(50, g_y - 14, 505, 14, fill=True, stroke=True)
+
+                grade_val = ev.get("grade")
+                grade_str = f"{grade_val:.1f}" if grade_val is not None else "Pendente"
+
+                # Cor da nota individual
+                if grade_val is None:
+                    note_color = c_text_muted
+                elif grade_val >= APPROVAL_THRESHOLD:
+                    note_color = c_green
+                elif grade_val >= 5.0:
+                    note_color = c_orange
+                else:
+                    note_color = c_red
+
+                canvas.set_fill_color(*c_text_dark)
+                canvas.draw_text(str(ev.get("name", ""))[:35], 56, g_y - 10, size=7, bold=False)
+                canvas.draw_text(str(ev.get("type", "")), 280, g_y - 10, size=7, bold=False)
+                canvas.draw_text(str(ev.get("weight", "")), 360, g_y - 10, size=7, bold=False)
+                canvas.set_fill_color(*note_color)
+                canvas.draw_text(grade_str, 420, g_y - 10, size=7, bold=True)
+                canvas.set_fill_color(*c_text_muted)
+                canvas.draw_text(str(ev.get("date", "")), 470, g_y - 10, size=7, bold=False)
+                g_y -= 14
+
+            g_y -= 10  # espaço entre disciplinas
+
+            # Segurança: se ultrapassar a margem inferior, para
+            if g_y < 80:
+                break
+
+        # Rodapé da Página 2
+        canvas.set_stroke_color(*c_gray_border)
+        canvas.draw_line(40, 50, 555, 50, line_width=0.6)
+        canvas.set_fill_color(*c_text_muted)
+        canvas.draw_text("EduTrack AI - Sistema de Gestao Academica Inteligente", 40, 36, size=8, bold=False)
+        canvas.draw_text("Boletim gerado automaticamente. Notas sujeitas a revisao pelo professor.", 40, 24, size=7, bold=False)
 
     return canvas.build_pdf_bytes()
 
@@ -440,7 +661,8 @@ def generate_report_bytes(
     """Retorna os bytes do PDF gerado diretamente em memória para uso no Streamlit (download_button)."""
     subjects, tasks = fetch_student_data(api_url=api_url, auth_token=auth_token)
     metrics = calculate_performance_metrics(subjects, tasks)
-    return render_performance_pdf(student_name=student_name, metrics=metrics, tasks=tasks)
+    grades_data = calculate_grades_metrics(subjects)
+    return render_performance_pdf(student_name=student_name, metrics=metrics, tasks=tasks, grades_data=grades_data)
 
 
 def generate_student_report_pdf(
@@ -452,8 +674,9 @@ def generate_student_report_pdf(
     """Função pública que orquestra a coleta de dados, cálculo de métricas e geração do PDF."""
     subjects, tasks = fetch_student_data(api_url=api_url, auth_token=auth_token)
     metrics = calculate_performance_metrics(subjects, tasks)
-    
-    pdf_bytes = render_performance_pdf(student_name=student_name, metrics=metrics, tasks=tasks)
+    grades_data = calculate_grades_metrics(subjects)
+
+    pdf_bytes = render_performance_pdf(student_name=student_name, metrics=metrics, tasks=tasks, grades_data=grades_data)
     
     # Grava o arquivo PDF no caminho de saída
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
