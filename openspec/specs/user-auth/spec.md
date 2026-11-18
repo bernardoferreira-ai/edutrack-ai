@@ -42,3 +42,21 @@ The system SHALL allow an authenticated user to log out from `pages/3_👤_Perfi
 - **WHEN** authenticated user clicks the logout button
 - **THEN** system removes the `authToken` and profile data from `st.session_state` and displays the login/signup interface
 
+### Requirement: Profile Visual Design Enhancement
+The system SHALL render visually enhanced presentation cards, typography, and layout styles for both authenticated user profile view and unauthenticated access views (login/signup) in `pages/3_👤_Perfil.py`, preserving all existing forms, options, inputs, buttons, and state behaviors.
+
+#### Scenario: Rendering authenticated profile view
+- **WHEN** an authenticated user opens `pages/3_👤_Perfil.py`
+- **THEN** the system SHALL display the user details inside styled presentation cards with custom CSS, showing profile info, active status badge, PDF download section, and logout action
+
+#### Scenario: Rendering unauthenticated login and signup view
+- **WHEN** an unauthenticated visitor opens `pages/3_👤_Perfil.py`
+- **THEN** the system SHALL display styled welcome and authentication card containers with tabs for login and registration, retaining the exact email, password, and name inputs
+
+### Requirement: Authentication Form Box Visual Enhancement
+The system SHALL display a centered, elevated, and styled form card for user login and registration in `pages/3_👤_Perfil.py`, preserving all existing form inputs, options, buttons, and authentication flows.
+
+#### Scenario: Viewing login and registration box
+- **WHEN** an unauthenticated visitor opens `pages/3_👤_Perfil.py`
+- **THEN** the system SHALL render the authentication form box centered on the page with modern card borders, shadows, styled submission buttons, and refined input fields
+
