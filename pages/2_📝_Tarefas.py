@@ -12,18 +12,24 @@ st.set_page_config(page_title="Tarefas", page_icon="📝", layout="wide")
 st.markdown(
     """
     <style>
-    /* Global App View */
+    /* Dark Theme Global View */
     [data-testid="stAppViewContainer"] {
-        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 50%, #f8fafc 100%);
+        background: linear-gradient(180deg, #0b0f19 0%, #0f172a 50%, #0b0f19 100%);
+        color: #f8fafc;
+    }
+    [data-testid="stSidebar"] {
+        background-color: #111827;
+        border-right: 1px solid rgba(255, 255, 255, 0.08);
     }
 
     /* Page Header Shell */
     .page-shell {
-        background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4338ca 100%);
+        background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 60%, #172554 100%);
         border-radius: 20px;
         padding: 1.8rem 2.2rem;
         color: #ffffff;
-        box-shadow: 0 10px 25px -5px rgba(49, 46, 129, 0.25);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.08);
         margin-bottom: 1.5rem;
     }
     .page-title {
@@ -39,8 +45,8 @@ st.markdown(
         margin-top: 0.35rem;
     }
     .page-pill {
-        background: rgba(255, 255, 255, 0.16);
-        border: 1px solid rgba(255, 255, 255, 0.35);
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.25);
         color: #ffffff;
         font-weight: 700;
         border-radius: 999px;
@@ -50,33 +56,34 @@ st.markdown(
 
     /* Search & Filter Panel */
     .filter-panel {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
+        background: #161e2e;
+        border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 18px;
         padding: 1.4rem 1.7rem;
-        box-shadow: 0 6px 20px -3px rgba(15, 23, 42, 0.04);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
         margin-bottom: 1.5rem;
+        color: #f8fafc;
     }
 
-    /* Expander Modernization */
+    /* Expander Modernization in Dark Theme */
     .stExpander {
-        background: #ffffff !important;
+        background: #161e2e !important;
         border-radius: 18px !important;
-        border: 1px solid rgba(226, 232, 240, 0.9) !important;
-        box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.05) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25) !important;
         overflow: hidden !important;
         margin-bottom: 1rem !important;
         transition: all 0.2s ease !important;
     }
     .stExpander:hover {
-        border-color: rgba(99, 102, 241, 0.3) !important;
-        box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.08) !important;
+        border-color: rgba(239, 68, 68, 0.3) !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
     }
     [data-testid="stExpanderToggleIcon"] {
-        color: #4338ca !important;
+        color: #ef4444 !important;
     }
 
-    /* Task Meta Badges */
+    /* Task Meta Badges in Dark Mode */
     .task-meta-bar {
         display: flex;
         gap: 0.6rem;
@@ -94,22 +101,48 @@ st.markdown(
         font-weight: 600;
     }
     .badge-subject {
-        background: #eef2ff;
-        color: #4338ca;
+        background: #1e1b4b;
+        color: #93c5fd;
+        border: 1px solid rgba(147, 197, 253, 0.2);
     }
     .badge-date {
-        background: #f1f5f9;
-        color: #475569;
+        background: #1e293b;
+        color: #cbd5e1;
+        border: 1px solid rgba(203, 213, 225, 0.15);
     }
     .badge-status-completed {
-        background: rgba(16, 185, 129, 0.12);
-        color: #059669;
+        background: rgba(16, 185, 129, 0.2);
+        color: #6ee7b7;
         font-weight: 700;
+        border: 1px solid rgba(16, 185, 129, 0.35);
     }
     .badge-status-pending {
-        background: rgba(245, 158, 11, 0.12);
-        color: #d97706;
+        background: rgba(245, 158, 11, 0.2);
+        color: #fcd34d;
         font-weight: 700;
+        border: 1px solid rgba(245, 158, 11, 0.35);
+    }
+
+    /* Red Action Buttons (Excluir) */
+    button[data-testid="baseButton-secondary"],
+    button[key*="del_task_btn"],
+    button[key*="btn_del_selected_task"],
+    button[key*="modal_confirm_del"] {
+        background: linear-gradient(135deg, #b91c1c 0%, #dc2626 50%, #ef4444 100%) !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 12px !important;
+        box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35) !important;
+        font-weight: 700 !important;
+        transition: all 0.15s ease !important;
+    }
+    button[data-testid="baseButton-secondary"]:hover,
+    button[key*="del_task_btn"]:hover,
+    button[key*="btn_del_selected_task"]:hover,
+    button[key*="modal_confirm_del"]:hover {
+        background: linear-gradient(135deg, #991b1b 0%, #b91c1c 100%) !important;
+        box-shadow: 0 6px 20px rgba(220, 38, 38, 0.5) !important;
+        transform: translateY(-1px) !important;
     }
     </style>
     """,
