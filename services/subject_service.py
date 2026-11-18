@@ -221,12 +221,43 @@ class SubjectService:
             raise ValueError("O nome da disciplina não pode ser vazio.")
 
         active_token = token or self.auth_token
-        payload = {}
+
+        # Sanitiza os campos recebidos (remove None, faz strip em strings)
+        incoming = {}
         for k, v in fields.items():
             if v is not None:
-                payload[k] = v.strip() if isinstance(v, str) else v
+                incoming[k] = v.strip() if isinstance(v, str) else v
 
         if active_token:
+            # ── Estratégia de merge: busca o registro atual e mescla os campos
+            # novos sobre ele, garantindo que todos os campos obrigatórios do
+            # endpoint PATCH (name, teacher, hours) sejam sempre enviados, mesmo
+            # quando o chamador atualiza apenas um subconjunto deles.
+            current: Dict[str, Any] = {}
+            try:
+                resp_get = self._dispatch_request("GET", f"subjects/{subject_id}", token=active_token)
+                if resp_get.status_code == 200:
+                    current = resp_get.json() or {}
+            except Exception:
+                pass  # Se GET falhar, prossegue com o que foi passado
+
+            # Campos obrigatórios no Xano — garante que nunca ficam ausentes
+            REQUIRED_FIELDS = ("name", "teacher", "hours")
+            payload: Dict[str, Any] = {}
+            for field in REQUIRED_FIELDS:
+                # Prioridade: valor novo (incoming) > valor atual (current) > "" / 0
+                if field in incoming:
+                    payload[field] = incoming[field]
+                elif field in current and current[field] is not None:
+                    payload[field] = current[field]
+                else:
+                    payload[field] = 0 if field == "hours" else ""
+
+            # Inclui demais campos opcionais que foram explicitamente passados
+            for k, v in incoming.items():
+                if k not in payload:
+                    payload[k] = v
+
             resp = self._dispatch_request("PATCH", f"subjects/{subject_id}", token=active_token, json=payload)
             if resp.status_code == 200:
                 return resp.json()
@@ -237,9 +268,10 @@ class SubjectService:
                     err_msg = resp.text
                 raise RuntimeError(f"Erro do Xano ({resp.status_code}): {err_msg}")
 
+        # Fallback offline: aplica apenas os campos recebidos no store local
         for s in self._fallback_store:
             if s.get("id") == subject_id:
-                for k, v in payload.items():
+                for k, v in incoming.items():
                     s[k] = v
                 return dict(s)
         return None
