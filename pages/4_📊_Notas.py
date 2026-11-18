@@ -193,8 +193,11 @@ try:
 except Exception:
     subjects = []
 
-# Mockup / Contingência realista de avaliações por matéria
-DEFAULT_GRADES_BY_SUBJECT = {
+# ─────────────────────────────────────────────────────────────────────────────
+# Dados de Notas — inicializados no session_state uma única vez.
+# Edições ficam persistentes durante a sessão sem depender do backend.
+# ─────────────────────────────────────────────────────────────────────────────
+_DEFAULT_GRADES: dict = {
     "Innovation Lab": [
         {"name": "Trabalho 01 - Prototipação e UX", "type": "Trabalho", "weight": "30%", "grade": 8.5, "date": "15/02/2026"},
         {"name": "Prova Prática - Xano & Streamlit", "type": "Prova", "weight": "40%", "grade": 7.5, "date": "28/02/2026"},
@@ -212,6 +215,13 @@ DEFAULT_GRADES_BY_SUBJECT = {
     ],
 }
 
+import copy
+if "grades_data" not in st.session_state:
+    st.session_state["grades_data"] = copy.deepcopy(_DEFAULT_GRADES)
+
+# Atalho para o dicionário de notas editável
+grades_data: dict = st.session_state["grades_data"]
+
 # Consolidate subjects list
 subject_items = []
 if subjects:
@@ -226,18 +236,20 @@ else:
         {"id": 3, "name": "Calculo Diferencial e Integral", "teacher": "Dr. Carlos Mendes"},
     ]
 
+# Fallback de avaliações para disciplinas sem dados cadastrados
+_EVAL_FALLBACK = [
+    {"name": "Trabalho Bimestral", "type": "Trabalho", "weight": "40%", "grade": 7.0, "date": "20/02/2026"},
+    {"name": "Prova Teórica", "type": "Prova", "weight": "60%", "grade": 7.5, "date": "10/03/2026"},
+]
+
 # Calculate averages and overall summary metrics
+APPROVAL_THRESHOLD = 7.0
 averages = []
 approved_count = 0
 attention_count = 0
-APPROVAL_THRESHOLD = 7.0
 
 for s in subject_items:
-    s_name = s["name"]
-    evals = DEFAULT_GRADES_BY_SUBJECT.get(s_name, [
-        {"name": "Trabalho Bimestral", "type": "Trabalho", "weight": "40%", "grade": 7.0, "date": "20/02/2026"},
-        {"name": "Prova Teórica", "type": "Prova", "weight": "60%", "grade": 7.5, "date": "10/03/2026"},
-    ])
+    evals = grades_data.get(s["name"], _EVAL_FALLBACK)
     avg = sum(e["grade"] for e in evals) / len(evals) if evals else 0.0
     averages.append(avg)
     if avg >= APPROVAL_THRESHOLD:
@@ -286,11 +298,11 @@ for s in subject_items:
     if filtro_disciplina != "Todas as Disciplinas" and filtro_disciplina != s_name:
         continue
 
-    evals = DEFAULT_GRADES_BY_SUBJECT.get(s_name, [
-        {"name": "Trabalho Bimestral", "type": "Trabalho", "weight": "40%", "grade": 7.0, "date": "20/02/2026"},
-        {"name": "Prova Teórica", "type": "Prova", "weight": "60%", "grade": 7.5, "date": "10/03/2026"},
-    ])
+    # Garante que disciplinas novas do backend tenham fallback no grades_data
+    if s_name not in grades_data:
+        grades_data[s_name] = copy.deepcopy(_EVAL_FALLBACK)
 
+    evals = grades_data[s_name]
     current_avg = sum(e["grade"] for e in evals) / len(evals) if evals else 0.0
 
     # Determinar status e estilo
@@ -330,7 +342,7 @@ for s in subject_items:
     st.caption(f"Aproveitamento: {current_avg:.1f} de 10.0")
     st.progress(min(max(current_avg / 10.0, 0.0), 1.0))
 
-    # Tabela de Avaliações
+    # Tabela de Avaliações + Painel de Status
     col_tabela, col_info = st.columns([2, 1])
 
     with col_tabela:
@@ -357,5 +369,68 @@ for s in subject_items:
             """,
             unsafe_allow_html=True,
         )
+
+    # ─────────────────────────────────────────────────────────────────────
+    # Seção de Edição de Notas
+    # ─────────────────────────────────────────────────────────────────────
+    edit_key = f"editing_{s_name}"
+    if edit_key not in st.session_state:
+        st.session_state[edit_key] = False
+
+    st.markdown("")  # espaço visual
+
+    col_btn, _ = st.columns([1, 3])
+    with col_btn:
+        btn_label = "✏️ Editar Notas" if not st.session_state[edit_key] else "✖ Cancelar Edição"
+        if st.button(btn_label, key=f"btn_edit_{s_name}", use_container_width=True):
+            st.session_state[edit_key] = not st.session_state[edit_key]
+            st.rerun()
+
+    if st.session_state[edit_key]:
+        st.markdown("**✏️ Edição de Notas — altere os valores e clique em Salvar:**")
+
+        with st.form(key=f"form_edit_{s_name}"):
+            new_grades = []
+            for i, ev in enumerate(evals):
+                col_name, col_grade = st.columns([3, 1])
+                with col_name:
+                    st.markdown(
+                        f"<small style='color:#94a3b8;'>{ev['type']} · {ev['weight']} · {ev['date']}</small><br>"
+                        f"<strong style='color:#f8fafc;'>{ev['name']}</strong>",
+                        unsafe_allow_html=True,
+                    )
+                with col_grade:
+                    new_val = st.number_input(
+                        label="Nota",
+                        min_value=0.0,
+                        max_value=10.0,
+                        value=float(ev["grade"]),
+                        step=0.1,
+                        format="%.1f",
+                        key=f"grade_input_{s_name}_{i}",
+                    )
+                new_grades.append(new_val)
+                if i < len(evals) - 1:
+                    st.divider()
+
+            col_save, col_reset = st.columns(2)
+            with col_save:
+                submitted = st.form_submit_button("💾 Salvar Alterações", use_container_width=True, type="primary")
+            with col_reset:
+                reset = st.form_submit_button("🔄 Restaurar Padrão", use_container_width=True)
+
+        if submitted:
+            for i, ev in enumerate(evals):
+                grades_data[s_name][i]["grade"] = new_grades[i]
+            st.session_state[edit_key] = False
+            st.success(f"✅ Notas de **{s_name}** atualizadas com sucesso!")
+            st.rerun()
+
+        if reset:
+            if s_name in _DEFAULT_GRADES:
+                grades_data[s_name] = copy.deepcopy(_DEFAULT_GRADES[s_name])
+            st.session_state[edit_key] = False
+            st.success(f"🔄 Notas de **{s_name}** restauradas ao padrão.")
+            st.rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
