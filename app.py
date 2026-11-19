@@ -354,7 +354,7 @@ with col_right:
 # ─────────────────────────────────────────────────────────────────────────────
 st.markdown('<div class="section-title">🚀 Acesso Rápido</div>', unsafe_allow_html=True)
 
-quick_pages = st.columns(4)
+quick_pages = st.columns(5)
 
 with quick_pages[0]:
     st.page_link(
@@ -385,5 +385,13 @@ with quick_pages[3]:
         "pages/4_📊_Notas.py",
         label="Notas",
         icon="📊",
+        width="stretch",
+    )
+
+with quick_pages[4]:
+    st.page_link(
+        "pages/5_📝_Anotações.py",
+        label="Anotações",
+        icon="✏️",
         width="stretch",
     )
