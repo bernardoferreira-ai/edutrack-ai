@@ -6,6 +6,9 @@ from datetime import datetime, date
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from services.subject_service import SubjectService
 from services.task_service import TaskService
+from services.design_service import apply_edutrack_design
+
+apply_edutrack_design()
 
 st.set_page_config(page_title="EduTrack AI — Dashboard", page_icon="🎓", layout="wide")
 
@@ -350,22 +353,37 @@ with col_right:
 # ATALHOS RÁPIDOS
 # ─────────────────────────────────────────────────────────────────────────────
 st.markdown('<div class="section-title">🚀 Acesso Rápido</div>', unsafe_allow_html=True)
-st.markdown(
-    """
-    <div class="ql-grid">
-        <a href="/1_📚_Disciplinas" target="_self" style="text-decoration:none;">
-            <div class="ql-card"><span class="ql-icon">📚</span>Disciplinas</div>
-        </a>
-        <a href="/2_📝_Tarefas" target="_self" style="text-decoration:none;">
-            <div class="ql-card"><span class="ql-icon">📝</span>Tarefas</div>
-        </a>
-        <a href="/3_👤_Perfil" target="_self" style="text-decoration:none;">
-            <div class="ql-card"><span class="ql-icon">👤</span>Perfil & PDF</div>
-        </a>
-        <a href="/4_📊_Notas" target="_self" style="text-decoration:none;">
-            <div class="ql-card"><span class="ql-icon">📊</span>Notas</div>
-        </a>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+
+quick_pages = st.columns(4)
+
+with quick_pages[0]:
+    st.page_link(
+        "pages/1_📚_Disciplinas.py",
+        label="Disciplinas",
+        icon="📚",
+        width="stretch",
+    )
+
+with quick_pages[1]:
+    st.page_link(
+        "pages/2_📝_Tarefas.py",
+        label="Tarefas",
+        icon="📝",
+        width="stretch",
+    )
+
+with quick_pages[2]:
+    st.page_link(
+        "pages/3_👤_Perfil.py",
+        label="Perfil & PDF",
+        icon="👤",
+        width="stretch",
+    )
+
+with quick_pages[3]:
+    st.page_link(
+        "pages/4_📊_Notas.py",
+        label="Notas",
+        icon="📊",
+        width="stretch",
+    )

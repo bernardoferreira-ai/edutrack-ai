@@ -6,6 +6,10 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from services.task_service import TaskService
 from services.subject_service import SubjectService
+from services.design_service import apply_edutrack_design
+
+# Apply visual system
+apply_edutrack_design()
 
 st.set_page_config(page_title="Tarefas", page_icon="📝", layout="wide")
 

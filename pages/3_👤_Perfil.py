@@ -5,6 +5,10 @@ import sys
 # Ensure services directory is accessible
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from services.auth_service import AuthService
+from services.design_service import apply_edutrack_design
+
+# Apply EduTrack visual design
+apply_edutrack_design()
 
 st.set_page_config(page_title="Perfil - EduTrack AI", page_icon="👤", layout="wide")
 
