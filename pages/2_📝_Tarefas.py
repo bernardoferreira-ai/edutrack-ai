@@ -174,7 +174,16 @@ def excluir_tarefa(task_id: int) -> bool:
     return task_service.delete_task(task_id, token=token)
 
 @st.dialog("Confirmar Exclusão")
-def confirmar_exclusao_tarefa(task_id: int, task_title: str):
+def confirmar_exclusao_tarefa(task_id: int, task_title: str, task_status: str = "completed"):
+    is_pending = str(task_status).lower() == "pending"
+
+    if is_pending:
+        st.warning(f"A tarefa **{task_title}** está pendente.")
+        st.info("Conclua a tarefa primeiro antes de excluí-la.")
+        if st.button("Entendi", key=f"modal_pending_task_{task_id}"):
+            st.rerun()
+        return
+
     st.warning(f"Você realmente deseja excluir a tarefa **{task_title}**?")
     st.caption("Esta ação removerá a tarefa permanentemente.")
     col_sim, col_nao = st.columns(2)
@@ -290,21 +299,26 @@ else:
 
             with col_del:
                 if st.button("🗑️ Excluir Tarefa", key=f"del_task_btn_{task_id}_{idx}", type="secondary", use_container_width=True):
-                    confirmar_exclusao_tarefa(task_id, title)
+                    confirmar_exclusao_tarefa(task_id, title, task_status=task.get("status", "completed"))
 
 # Gerenciamento de Tarefas (Exclusão por seleção)
 if all_tasks:
     with st.expander("⚙️ Gerenciar Tarefas (Excluir)"):
         task_options = {
-            f"{t.get('title', 'Sem título')} (ID: {t.get('id')})": t.get("id")
+            f"{t.get('title', 'Sem título')} (ID: {t.get('id')})": t
             for t in all_tasks if t.get("id") is not None
         }
         if task_options:
             sel_task_label = st.selectbox("Selecione a tarefa para excluir", list(task_options.keys()))
-            sel_task_id = task_options[sel_task_label]
+            selected_task = task_options[sel_task_label]
+            sel_task_id = selected_task.get("id")
             st.caption("Esta ação removerá a tarefa permanentemente.")
             if st.button("🗑️ Excluir Tarefa Selecionada", key="btn_del_selected_task", type="secondary", use_container_width=True):
-                confirmar_exclusao_tarefa(sel_task_id, sel_task_label)
+                confirmar_exclusao_tarefa(
+                    sel_task_id,
+                    sel_task_label,
+                    task_status=selected_task.get("status", "completed")
+                )
 
 # Seção para cadastrar nova tarefa
 with st.expander("➕ Nova Tarefa"):
