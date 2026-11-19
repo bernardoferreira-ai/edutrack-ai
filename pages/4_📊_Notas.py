@@ -5,6 +5,10 @@ import os
 # Ensure services directory is accessible
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from services.subject_service import SubjectService
+from services.design_service import apply_edutrack_design
+
+# Apply EduTrack visual system design
+apply_edutrack_design()
 
 st.set_page_config(page_title="Notas & Desempenho", page_icon="📊", layout="wide")
 
