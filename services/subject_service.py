@@ -170,13 +170,18 @@ class SubjectService:
         teacher: str = "",
         hours: Optional[int] = None,
         dia_semana: str = "Seg",
-        token: Optional[str] = None
+        token: Optional[str] = None,
+        code: Optional[str] = None,
+        professor: Optional[str] = None,
+        semester: Optional[str] = None,
+        color: Optional[str] = None,
+        status: Optional[str] = None,
     ) -> Dict[str, Any]:
         cleaned_name = name.strip()
         if not cleaned_name:
             raise ValueError("O nome da disciplina é obrigatório.")
 
-        resolved_teacher = teacher.strip()
+        resolved_teacher = (professor or teacher).strip()
         # Xano exige 'hours'; se não informado, define valor padrão de 60 horas
         resolved_hours = int(hours) if hours is not None else 60
         payload: Dict[str, Any] = {
@@ -184,6 +189,16 @@ class SubjectService:
             "teacher": resolved_teacher,
             "hours": resolved_hours,
         }
+        if code:
+            payload["code"] = code
+        if semester:
+            payload["semester"] = semester
+        if color:
+            payload["color"] = color
+        if status:
+            payload["status"] = status
+        if dia_semana:
+            payload["dia_semana"] = dia_semana
 
         active_token = token or self.auth_token
         if active_token:
@@ -206,11 +221,14 @@ class SubjectService:
             "id": self._next_id,
             "created_at": "2026-09-23T12:00:00Z",
             "name": cleaned_name,
+            "code": code or "",
             "teacher": resolved_teacher,
             "professor": resolved_teacher,
-            "hours": hours or 60,
+            "hours": resolved_hours,
+            "semester": semester or "",
+            "color": color or "#4F46E5",
             "dia_semana": dia_semana,
-            "status": "active",
+            "status": status or "active",
         }
         self._next_id += 1
         self._fallback_store.append(record)
@@ -294,6 +312,9 @@ class SubjectService:
                 self._fallback_store.pop(i)
                 return True
         return False
+
+    def get_active_count(self) -> int:
+        return sum(1 for subject in self._fallback_store if subject.get("status", "active") != "completed")
 
 
 # Default global instance
